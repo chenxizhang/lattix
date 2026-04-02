@@ -14,6 +14,6 @@ configuration:
         enabled: true
         maxHours: 2
         approvers:
-            role: Maintain
+            role: 
         requestors:
             role: Write
