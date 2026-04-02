@@ -1,0 +1,5 @@
+inventory:
+- source: DirectOwners
+  items:
+  - id: arechen@microsoft.com
+  isProduction: false
