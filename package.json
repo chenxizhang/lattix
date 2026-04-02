@@ -1,0 +1,40 @@
+{
+  "name": "agentbroker",
+  "version": "1.0.0",
+  "description": "Multi-machine coding agent orchestrator using OneDrive for Business sync",
+  "main": "dist/cli.js",
+  "bin": {
+    "agentbroker": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsc --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "agent",
+    "broker",
+    "onedrive",
+    "multi-machine",
+    "coding-agent"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ],
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "commander": "^14.0.3",
+    "typescript": "^6.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0"
+  }
+}

@@ -1,0 +1,178 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as chokidar from 'chokidar';
+import { TaskFile, ProcessedTasks } from '../types';
+
+export type TaskHandler = (task: TaskFile, filePath: string) => void;
+
+export class TaskWatcher {
+  private readonly tasksDir: string;
+  private readonly processedPath: string;
+  private readonly pollIntervalMs: number;
+  private watcher: chokidar.FSWatcher | null = null;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private handler: TaskHandler | null = null;
+  private processedIds: Set<string>;
+  private inProgressIds: Set<string> = new Set();
+
+  constructor(tasksDir: string, processedPath: string, pollIntervalSeconds: number = 10) {
+    this.tasksDir = tasksDir;
+    this.processedPath = processedPath;
+    this.pollIntervalMs = pollIntervalSeconds * 1000;
+    this.processedIds = this.loadProcessed();
+  }
+
+  /**
+   * Set the handler to call when a new task is detected.
+   */
+  onTask(handler: TaskHandler): void {
+    this.handler = handler;
+  }
+
+  /**
+   * Start watching. First processes existing unprocessed tasks, then watches for new ones.
+   */
+  async start(): Promise<void> {
+    if (!this.handler) {
+      throw new Error('No task handler set. Call onTask() before start().');
+    }
+
+    // Startup scan: process existing tasks not yet in processed.json
+    console.log('Scanning for unprocessed tasks...');
+    await this.scanExisting();
+
+    // Start file watcher
+    this.watcher = chokidar.watch(this.tasksDir, {
+      ignoreInitial: true,
+      depth: 0,
+      awaitWriteFinish: {
+        stabilityThreshold: 1000,
+        pollInterval: 200,
+      },
+    });
+
+    this.watcher.on('add', (filePath: string) => {
+      if (path.extname(filePath).toLowerCase() === '.json') {
+        this.processFile(filePath);
+      }
+    });
+
+    this.watcher.on('error', (error: unknown) => {
+      console.error(`Watcher error: ${(error as Error).message}`);
+    });
+
+    // Start polling fallback
+    this.pollTimer = setInterval(() => {
+      this.scanExisting();
+    }, this.pollIntervalMs);
+
+    console.log(`✓ Watching for tasks in: ${this.tasksDir}`);
+    console.log(`  Poll interval: ${this.pollIntervalMs / 1000}s`);
+  }
+
+  /**
+   * Stop watching.
+   */
+  async stop(): Promise<void> {
+    if (this.watcher) {
+      await this.watcher.close();
+      this.watcher = null;
+    }
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    console.log('Task watcher stopped.');
+  }
+
+  /**
+   * Mark a task as processed so it won't be picked up again.
+   */
+  markProcessed(taskId: string): void {
+    this.inProgressIds.delete(taskId);
+    this.processedIds.add(taskId);
+    this.saveProcessed();
+  }
+
+  private async scanExisting(): Promise<void> {
+    try {
+      const files = fs.readdirSync(this.tasksDir)
+        .filter(f => f.endsWith('.json'))
+        .map(f => path.join(this.tasksDir, f));
+
+      for (const filePath of files) {
+        this.processFile(filePath);
+      }
+    } catch (err) {
+      console.error(`Error scanning tasks directory: ${(err as Error).message}`);
+    }
+  }
+
+  private processFile(filePath: string): void {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext !== '.json') {
+      return;
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const task = this.parseAndValidate(content, filePath);
+
+      if (!task) return;
+
+      // Check if already processed or in progress
+      if (this.processedIds.has(task.id) || this.inProgressIds.has(task.id)) {
+        return;
+      }
+
+      this.inProgressIds.add(task.id);
+      console.log(`\n📋 New task detected: ${task.id}${task.title ? ` - ${task.title}` : ''}`);
+      this.handler!(task, filePath);
+    } catch (err) {
+      console.warn(`⚠ Error reading task file ${path.basename(filePath)}: ${(err as Error).message}`);
+    }
+  }
+
+  private parseAndValidate(content: string, filePath: string): TaskFile | null {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      console.warn(`⚠ Invalid JSON in ${path.basename(filePath)}, skipping`);
+      return null;
+    }
+
+    const obj = parsed as Record<string, unknown>;
+
+    // Validate required fields
+    const missing: string[] = [];
+    if (typeof obj.id !== 'string' || !obj.id) missing.push('id');
+    if (typeof obj.prompt !== 'string' || !obj.prompt) missing.push('prompt');
+
+    if (missing.length > 0) {
+      console.warn(`⚠ Task file ${path.basename(filePath)} missing required fields: ${missing.join(', ')}`);
+      return null;
+    }
+
+    return obj as unknown as TaskFile;
+  }
+
+  private loadProcessed(): Set<string> {
+    try {
+      if (fs.existsSync(this.processedPath)) {
+        const data = JSON.parse(fs.readFileSync(this.processedPath, 'utf-8')) as ProcessedTasks;
+        return new Set(data.processedIds);
+      }
+    } catch {
+      console.warn('⚠ Could not load processed.json, starting fresh');
+    }
+    return new Set();
+  }
+
+  private saveProcessed(): void {
+    const data: ProcessedTasks = {
+      processedIds: Array.from(this.processedIds),
+    };
+    fs.writeFileSync(this.processedPath, JSON.stringify(data, null, 2));
+  }
+}
