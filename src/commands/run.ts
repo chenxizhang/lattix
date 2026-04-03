@@ -42,19 +42,15 @@ export async function runCommand(options: RunOptions, dependencies: RunDependenc
   // Check Windows Service state first
   const serviceState = serviceManager.queryServiceState();
   if (serviceState === 'running') {
-    console.error('❌ Lattix is already running as a Windows Service. Use `lattix stop` to stop or `lattix uninstall` to remove.');
-    exit(1);
+    console.log('ℹ️ Lattix is installed and running as a Windows Service.');
+    console.log('   Use `lattix stop` to stop or `lattix uninstall` to remove.');
+    exit(0);
     return undefined as never;
   }
   if (serviceState === 'stopped') {
-    // Service is registered but stopped — resume it
-    if (!serviceManager.isAdmin()) {
-      console.error('❌ Administrator privileges required to start the service. Right-click your terminal and select "Run as administrator".');
-      exit(1);
-      return undefined as never;
-    }
-    serviceManager.startService();
-    console.log('🟢 Lattix service started');
+    console.log('ℹ️ Lattix is installed as a Windows Service but currently stopped.');
+    console.log('   To start:     Run `sc start lattix.exe` as Administrator');
+    console.log('   To uninstall: Run `lattix uninstall` as Administrator');
     exit(0);
     return undefined as never;
   }

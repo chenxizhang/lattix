@@ -263,58 +263,34 @@ test('run command writes PID file in foreground mode', async () => {
   assert.equal(typeof pidWritten, 'number', 'PID should be a number');
 });
 
-test('run command resumes stopped service via SCM', async () => {
+test('run command shows info when service is stopped', async () => {
   const { runCommand } = require('../dist/commands/run.js');
-  let serviceStarted = false;
   let exitCode = null;
 
   const deps = createMockDeps({
     serviceManager: {
       queryServiceState() { return 'stopped'; },
-      isAdmin() { return true; },
-      startService() { serviceStarted = true; },
     },
     exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
   });
 
   try { await runCommand({ pollInterval: '10', concurrency: '1' }, deps); } catch { /* expected */ }
 
-  assert.ok(serviceStarted, 'should start the service');
-  assert.equal(exitCode, 0);
+  assert.equal(exitCode, 0, 'should exit with 0 (informational)');
 });
 
-test('run command blocked when service is already running', async () => {
+test('run command shows info when service is running', async () => {
   const { runCommand } = require('../dist/commands/run.js');
   let exitCode = null;
 
   const deps = createMockDeps({
     serviceManager: {
       queryServiceState() { return 'running'; },
-      isAdmin() { return true; },
-      startService() {},
     },
     exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
   });
 
   try { await runCommand({ pollInterval: '10', concurrency: '1' }, deps); } catch { /* expected */ }
 
-  assert.equal(exitCode, 1);
-});
-
-test('run command resume blocked without admin', async () => {
-  const { runCommand } = require('../dist/commands/run.js');
-  let exitCode = null;
-
-  const deps = createMockDeps({
-    serviceManager: {
-      queryServiceState() { return 'stopped'; },
-      isAdmin() { return false; },
-      startService() {},
-    },
-    exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
-  });
-
-  try { await runCommand({ pollInterval: '10', concurrency: '1' }, deps); } catch { /* expected */ }
-
-  assert.equal(exitCode, 1);
+  assert.equal(exitCode, 0, 'should exit with 0 (informational)');
 });
