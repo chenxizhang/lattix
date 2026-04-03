@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { watchCommand } from './commands/watch';
-import { initCommand } from './commands/init';
+import { runCommand } from './commands/run';
 import { submitCommand } from './commands/submit';
 import { statusCommand } from './commands/status';
 
@@ -16,16 +15,14 @@ program
   .version(packageJson.version);
 
 program
-  .command('watch')
-  .description('Start watching for tasks and executing them')
+  .command('run')
+  .description('Start Lattix: auto-initialize if needed, then watch for tasks')
   .option('--poll-interval <seconds>', 'Polling interval in seconds', '10')
   .option('--concurrency <number>', 'Maximum concurrent agent processes', '1')
-  .action(watchCommand);
-
-program
-  .command('init')
-  .description('Initialize Lattix: detect OneDrive, create symlinks, generate config')
-  .action(initCommand);
+  .option('--daemon', 'Run as a background daemon process')
+  .option('--log-file <path>', 'Log file path (used with --daemon)')
+  .option('--_daemon-child', 'Internal flag: this process is the daemon child')
+  .action(runCommand);
 
 program
   .command('submit')
