@@ -64,7 +64,7 @@ export class WindowsServiceManager {
   }
 
   copyPackage(): void {
-    const sourceDir = this.deps.packageRoot ?? path.resolve(__dirname, '..');
+    const sourceDir = this.deps.packageRoot ?? path.resolve(__dirname, '..', '..');
     if (fs.existsSync(this.appDir)) {
       fs.rmSync(this.appDir, { recursive: true, force: true });
     }
