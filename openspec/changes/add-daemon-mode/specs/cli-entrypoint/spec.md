@@ -22,3 +22,19 @@ The system SHALL provide a `run` command that starts the task watcher in the for
 #### Scenario: Daemon mode with custom log file
 - **WHEN** the user runs `lattix run --daemon --log-file C:\logs\lattix.log`
 - **THEN** the system SHALL redirect all daemon output to `C:\logs\lattix.log`
+
+## ADDED Requirements
+
+### Requirement: Stop command
+The system SHALL provide a `stop` command that terminates the running Lattix instance.
+
+#### Scenario: Stopping Lattix
+- **WHEN** the user runs `lattix stop`
+- **THEN** the system SHALL terminate the running Lattix process and clean up the PID file
+
+### Requirement: Status shows process info
+The `status` command SHALL display running process information (PID, mode, log file) before listing tasks.
+
+#### Scenario: Status output includes process info
+- **WHEN** the user runs `lattix status`
+- **THEN** the system SHALL show whether Lattix is running, its PID, run mode, and log file location (if daemon)

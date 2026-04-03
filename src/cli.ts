@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { runCommand } from './commands/run';
 import { submitCommand } from './commands/submit';
 import { statusCommand } from './commands/status';
@@ -22,7 +22,7 @@ program
   .option('--concurrency <number>', 'Maximum concurrent agent processes', '1')
   .option('-d, --daemon', 'Run as a background daemon process')
   .option('--log-file <path>', 'Log file path (used with --daemon)')
-  .option('--_daemon-child', 'Internal flag: this process is the daemon child')
+  .addOption(new Option('--_daemon-child').hideHelp())
   .action(runCommand);
 
 program

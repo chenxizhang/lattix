@@ -54,7 +54,7 @@ lattix run
 Options:
 - `--poll-interval <seconds>` — Polling interval (default: `10`)
 - `--concurrency <number>` — Maximum concurrent agent processes (default: `1`)
-- `--daemon` — Run as a background daemon process (detached from the terminal)
+- `--daemon` or `-d` — Run as a background daemon process (detached from the terminal)
 - `--log-file <path>` — Log file path when running as a daemon (default: `~/.lattix/lattix.log`)
 
 #### Daemon Mode
@@ -108,7 +108,7 @@ Options:
 
 ### Check Status
 
-Show the running Lattix process info and list all tasks with their machine results:
+Show the running Lattix process info (PID, mode, log file) and list all tasks with their machine results:
 
 ```bash
 lattix status

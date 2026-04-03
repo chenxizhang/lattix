@@ -4,7 +4,7 @@ Define the daemon-mode capability: background process detachment, PID-file lifec
 ## Requirements
 
 ### Requirement: Daemon process detachment
-The system SHALL support a `--daemon` flag on the `run` command that spawns a detached background process and exits the parent immediately.
+The system SHALL support a `--daemon` (short form: `-d`) flag on the `run` command that spawns a detached background process and exits the parent immediately.
 
 #### Scenario: Starting in daemon mode
 - **WHEN** the user runs `lattix run --daemon`
@@ -58,3 +58,25 @@ The system SHALL redirect all stdout and stderr output to a log file when runnin
 #### Scenario: Log file entries are timestamped
 - **WHEN** the daemon writes a log entry
 - **THEN** the entry SHALL be prefixed with an ISO-8601 timestamp and a level indicator (e.g., `[INFO]`, `[ERROR]`)
+
+### Requirement: Stop command
+The system SHALL provide a `lattix stop` command that terminates the running Lattix instance by reading the PID file and sending SIGTERM to the process.
+
+#### Scenario: Stopping a running instance
+- **WHEN** the user runs `lattix stop` and a Lattix instance is running
+- **THEN** the system SHALL send SIGTERM to the running process, print a confirmation with the PID, and clean up the PID file
+
+#### Scenario: No instance running
+- **WHEN** the user runs `lattix stop` and no Lattix instance is running (no PID file or stale PID file)
+- **THEN** the system SHALL print an informational message indicating Lattix is not running and clean up any stale PID file
+
+### Requirement: Status shows process info
+The `lattix status` command SHALL display the running Lattix process information before listing tasks. This includes the PID, the run mode (foreground or daemon), and the log file location when applicable.
+
+#### Scenario: Status with running daemon
+- **WHEN** the user runs `lattix status` and a Lattix daemon is running
+- **THEN** the system SHALL display the process PID, indicate daemon (background) mode, and show the log file path
+
+#### Scenario: Status with no running instance
+- **WHEN** the user runs `lattix status` and no Lattix instance is running
+- **THEN** the system SHALL display that Lattix is not running
