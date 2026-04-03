@@ -34,18 +34,18 @@ interface RunDependencies {
 
 export async function runCommand(options: RunOptions, dependencies: RunDependencies = {}): Promise<void> {
   const exit = dependencies.exit ?? ((code: number) => process.exit(code));
+  const daemonService = dependencies.daemonService ?? new DaemonService();
+
+  // Single-instance guard: check for an already-running Lattix process
+  const existingPid = daemonService.checkExistingDaemon();
+  if (existingPid !== null) {
+    console.error(`❌ Lattix is already running (PID ${existingPid})`);
+    exit(1);
+    return undefined as never;
+  }
 
   // Daemon mode: spawn a detached child and exit the parent
   if (options.daemon) {
-    const daemonService = dependencies.daemonService ?? new DaemonService();
-
-    const existingPid = daemonService.checkExistingDaemon();
-    if (existingPid !== null) {
-      console.error(`❌ Lattix daemon is already running (PID ${existingPid})`);
-      exit(1);
-      return undefined as never;
-    }
-
     const argv = dependencies.processArgv ?? process.argv.slice(1);
     const logFile = options.logFile ?? daemonService.getDefaultLogPath();
     const childPid = daemonService.spawnDetached(argv, logFile);
@@ -57,21 +57,19 @@ export async function runCommand(options: RunOptions, dependencies: RunDependenc
     return undefined as never;
   }
 
-  // Daemon child mode: set up logging and PID file
+  // Daemon child mode: set up logging
   const isDaemonChild = options.DaemonChild ?? false;
-  let daemonService: DaemonService | undefined;
   let logger: Logger | undefined;
 
   if (isDaemonChild) {
-    daemonService = dependencies.daemonService ?? new DaemonService();
     logger = dependencies.logger ?? new Logger();
-
     if (options.logFile) {
       logger.setup(options.logFile);
     }
-
-    daemonService.writePid(process.pid);
   }
+
+  // Write PID file for all run modes (foreground + daemon child)
+  daemonService.writePid(process.pid);
 
   console.log('🕸️ Lattix - Starting\n');
 
@@ -83,7 +81,7 @@ export async function runCommand(options: RunOptions, dependencies: RunDependenc
     config = await bootstrapFn();
   } catch (err) {
     console.error(`\n❌ ${(err as Error).message}`);
-    if (daemonService) daemonService.removePid();
+    daemonService.removePid();
     if (logger) logger.restore();
     exit(1);
     return undefined as never;
@@ -132,7 +130,7 @@ export async function runCommand(options: RunOptions, dependencies: RunDependenc
   const shutdown = async () => {
     console.log('\nShutting down...');
     await watcher.stop();
-    if (daemonService) daemonService.removePid();
+    daemonService.removePid();
     if (logger) logger.restore();
     exit(0);
   };

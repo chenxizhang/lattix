@@ -54,6 +54,13 @@ function createMockDeps(overrides = {}) {
     })),
     registerSignal: overrides.registerSignal || (() => {}),
     exit: overrides.exit || ((code) => { throw new Error(`unexpected exit ${code}`); }),
+    daemonService: overrides.daemonService || {
+      checkExistingDaemon() { return null; },
+      writePid() {},
+      removePid() {},
+      getPidPath() { return 'C:\\temp\\lattix.pid'; },
+      getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
+    },
   };
 }
 
@@ -154,21 +161,21 @@ test('run command in daemon mode calls spawnDetached and exits', async () => {
   let spawnedArgs = null;
   let spawnedLogFile = null;
 
-  const mockDaemon = {
-    checkExistingDaemon() { return null; },
-    getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
-    getPidPath() { return 'C:\\temp\\lattix.pid'; },
-    spawnDetached(args, logFile) {
-      spawnedArgs = args;
-      spawnedLogFile = logFile;
-      return 12345;
-    },
-  };
-
   const deps = createMockDeps({
     exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
+    daemonService: {
+      checkExistingDaemon() { return null; },
+      writePid() {},
+      removePid() {},
+      getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
+      getPidPath() { return 'C:\\temp\\lattix.pid'; },
+      spawnDetached(args, logFile) {
+        spawnedArgs = args;
+        spawnedLogFile = logFile;
+        return 12345;
+      },
+    },
   });
-  deps.daemonService = mockDaemon;
   deps.processArgv = ['dist/cli.js', 'run', '--daemon'];
 
   try {
@@ -182,21 +189,45 @@ test('run command in daemon mode calls spawnDetached and exits', async () => {
   assert.equal(spawnedLogFile, 'C:\\temp\\lattix.log');
 });
 
-test('run command in daemon mode rejects when daemon already running', async () => {
+test('run command rejects when another instance is already running', async () => {
   const { runCommand } = require('../dist/commands/run.js');
   let exitCode = null;
 
-  const mockDaemon = {
-    checkExistingDaemon() { return 99999; },
-    getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
-    getPidPath() { return 'C:\\temp\\lattix.pid'; },
-    spawnDetached() { throw new Error('should not be called'); },
-  };
+  const deps = createMockDeps({
+    exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
+    daemonService: {
+      checkExistingDaemon() { return 99999; },
+      writePid() {},
+      removePid() {},
+      getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
+      getPidPath() { return 'C:\\temp\\lattix.pid'; },
+    },
+  });
+
+  try {
+    await runCommand({ pollInterval: '10', concurrency: '1', daemon: false }, deps);
+  } catch (e) {
+    // expected exit
+  }
+
+  assert.equal(exitCode, 1, 'should exit with 1 when another instance is running');
+});
+
+test('run command in daemon mode rejects when another instance is already running', async () => {
+  const { runCommand } = require('../dist/commands/run.js');
+  let exitCode = null;
 
   const deps = createMockDeps({
     exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
+    daemonService: {
+      checkExistingDaemon() { return 99999; },
+      writePid() {},
+      removePid() {},
+      getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
+      getPidPath() { return 'C:\\temp\\lattix.pid'; },
+      spawnDetached() { throw new Error('should not be called'); },
+    },
   });
-  deps.daemonService = mockDaemon;
 
   try {
     await runCommand({ pollInterval: '10', concurrency: '1', daemon: true }, deps);
@@ -204,5 +235,25 @@ test('run command in daemon mode rejects when daemon already running', async () 
     // expected exit
   }
 
-  assert.equal(exitCode, 1, 'should exit with 1 when daemon already running');
+  assert.equal(exitCode, 1, 'should exit with 1 when another instance is running');
+});
+
+test('run command writes PID file in foreground mode', async () => {
+  const { runCommand } = require('../dist/commands/run.js');
+  let pidWritten = null;
+
+  const deps = createMockDeps({
+    daemonService: {
+      checkExistingDaemon() { return null; },
+      writePid(pid) { pidWritten = pid; },
+      removePid() {},
+      getPidPath() { return 'C:\\temp\\lattix.pid'; },
+      getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
+    },
+  });
+
+  await runCommand({ pollInterval: '10', concurrency: '1', daemon: false }, deps);
+
+  assert.ok(pidWritten !== null, 'should have written PID file');
+  assert.equal(typeof pidWritten, 'number', 'PID should be a number');
 });

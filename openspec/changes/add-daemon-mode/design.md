@@ -10,6 +10,7 @@ The codebase uses `console.log` / `console.error` throughout all services (`task
 - Let users start Lattix as a detached background process with a single `--daemon` flag.
 - Redirect all output to a log file (`--log-file` configurable, defaults to `~/.lattix/lattix.log`).
 - Prevent duplicate daemon instances via a PID file at `~/.lattix/lattix.pid`.
+- Enforce single instance across all run modes (foreground and daemon share the same PID-file guard).
 - Keep the implementation within Node.js built-in modules — no new npm dependencies.
 
 **Non-Goals:**
@@ -28,11 +29,11 @@ The codebase uses `console.log` / `console.error` throughout all services (`task
 - *Fork-based*: `cluster.fork()` adds unnecessary IPC complexity.
 - *External process manager*: Adds a dependency and defeats the "zero extra deps" goal.
 
-### 2. PID file for instance guard
+### 2. PID file for single-instance guard (all run modes)
 
-The parent writes the child PID to `~/.lattix/lattix.pid` before exiting. On subsequent `--daemon` invocations, if the PID file exists and the process is alive, the command prints an error and exits. On normal shutdown (SIGINT/SIGTERM), the daemon deletes its own PID file.
+Every `lattix run` invocation — foreground or daemon — checks `~/.lattix/lattix.pid` on startup. If a live process owns the PID file, the new invocation prints an error and exits. Both foreground and daemon child modes write their own PID on start and remove it on shutdown. This prevents any combination of duplicate instances (foreground+foreground, daemon+foreground, daemon+daemon).
 
-**Rationale**: Simple, widely understood pattern. No lock-file or IPC needed.
+**Rationale**: Simple, widely understood pattern. No lock-file or IPC needed. Applying the guard uniformly avoids confusion about which mode "owns" exclusivity.
 
 ### 3. Log file via stream redirection
 
