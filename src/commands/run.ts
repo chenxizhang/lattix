@@ -39,20 +39,22 @@ export async function runCommand(options: RunOptions, dependencies: RunDependenc
   const daemonService = dependencies.daemonService ?? new DaemonService();
   const serviceManager = dependencies.serviceManager ?? new WindowsServiceManager();
 
-  // Check Windows Service state first
-  const serviceState = serviceManager.queryServiceState();
-  if (serviceState === 'running') {
-    console.log('ℹ️ Lattix is installed and running as a Windows Service.');
-    console.log('   Use `lattix stop` to stop or `lattix uninstall` to remove.');
-    exit(0);
-    return undefined as never;
-  }
-  if (serviceState === 'stopped') {
-    console.log('ℹ️ Lattix is installed as a Windows Service but currently stopped.');
-    console.log('   To start:     Run `sc start lattix.exe` as Administrator');
-    console.log('   To uninstall: Run `lattix uninstall` as Administrator');
-    exit(0);
-    return undefined as never;
+  // Skip service check when running as daemon child (service uses --_daemon-child)
+  if (!options.DaemonChild) {
+    const serviceState = serviceManager.queryServiceState();
+    if (serviceState === 'running') {
+      console.log('ℹ️ Lattix is installed and running as a Windows Service.');
+      console.log('   Use `lattix stop` to stop or `lattix uninstall` to remove.');
+      exit(0);
+      return undefined as never;
+    }
+    if (serviceState === 'stopped') {
+      console.log('ℹ️ Lattix is installed as a Windows Service but currently stopped.');
+      console.log('   To start:     Run `sc start lattix.exe` as Administrator');
+      console.log('   To uninstall: Run `lattix uninstall` as Administrator');
+      exit(0);
+      return undefined as never;
+    }
   }
 
   // Single-instance guard: check for an already-running Lattix process
