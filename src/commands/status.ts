@@ -2,22 +2,53 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TaskFile, ResultFile } from '../types';
 import { SetupService } from '../services/setup';
+import { DaemonService } from '../services/daemon';
+import { bootstrap } from '../services/bootstrap';
 
-export async function statusCommand(taskId?: string): Promise<void> {
+interface StatusDependencies {
+  daemonService?: DaemonService;
+}
+
+export async function statusCommand(taskId?: string, _cmdObj?: unknown, dependencies: StatusDependencies = {}): Promise<void> {
   const setup = new SetupService();
+  const daemonService = dependencies.daemonService ?? new DaemonService();
+
+  await bootstrap({ setup });
+
   const tasksDir = setup.getTasksDir();
   const outputDir = setup.getOutputDir();
 
-  if (!fs.existsSync(tasksDir)) {
-    console.error('❌ Lattix is not initialized. Run "lattix init" first.');
-    process.exit(1);
-  }
+  // Show running process info
+  showProcessInfo(daemonService);
 
   if (taskId) {
     showTaskDetail(taskId, tasksDir, outputDir);
   } else {
     showAllTasks(tasksDir, outputDir);
   }
+}
+
+function showProcessInfo(daemonService: DaemonService): void {
+  const pid = daemonService.readPid();
+
+  if (pid === null || !daemonService.isRunning(pid)) {
+    console.log('⚪ Lattix is not running\n');
+    if (pid !== null) daemonService.removePid();
+    return;
+  }
+
+  // Determine mode: if the process was started with --_daemon-child, it's daemon mode
+  // We can infer this from the log file existence
+  const logPath = daemonService.getDefaultLogPath();
+  const hasLogFile = fs.existsSync(logPath);
+
+  console.log(`🟢 Lattix is running (PID ${pid})`);
+  console.log(`   Mode: ${hasLogFile ? 'daemon (background)' : 'foreground'}`);
+  if (hasLogFile) {
+    console.log(`   Log file: ${logPath}`);
+  }
+  console.log(`   PID file: ${daemonService.getPidPath()}`);
+  console.log();
 }
 
 function showAllTasks(tasksDir: string, outputDir: string): void {

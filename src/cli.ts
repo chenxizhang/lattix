@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { runCommand } from './commands/run';
 import { submitCommand } from './commands/submit';
 import { statusCommand } from './commands/status';
+import { stopCommand } from './commands/stop';
 
 const packageJson = require('../package.json');
 
@@ -37,5 +38,10 @@ program
   .command('status [taskId]')
   .description('Show status of all tasks or a specific task')
   .action(statusCommand);
+
+program
+  .command('stop')
+  .description('Stop the running Lattix instance')
+  .action(stopCommand);
 
 program.parse();

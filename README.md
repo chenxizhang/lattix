@@ -73,11 +73,17 @@ To use a custom log file:
 lattix run --daemon --log-file C:\logs\lattix.log
 ```
 
-To stop a running daemon, find the PID in `~/.lattix/lattix.pid` and terminate it:
+> **Note:** Only one Lattix instance is allowed at a time, whether foreground or daemon.
 
-```powershell
-Stop-Process -Id (Get-Content ~/.lattix/lattix.pid)
+### Stop
+
+Stop the running Lattix instance:
+
+```bash
+lattix stop
 ```
+
+This sends SIGTERM to the running process and cleans up the PID file. Works for both foreground and daemon instances.
 
 Lattix checks both OneDrive for Business and personal OneDrive accounts.
 
@@ -102,7 +108,7 @@ Options:
 
 ### Check Status
 
-List all tasks and their machine results:
+Show the running Lattix process info and list all tasks with their machine results:
 
 ```bash
 lattix status
