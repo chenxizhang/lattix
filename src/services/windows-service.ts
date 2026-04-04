@@ -45,14 +45,14 @@ export class ScheduledTaskManager {
     const psCmd = [
       `$action = New-ScheduledTaskAction -Execute '${npxPath}' -Argument 'lattix run -d'`,
       `$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME`,
-      `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0`,
+      `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0 -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable`,
       `Register-ScheduledTask -TaskName '${TASK_NAME}' -Action $action -Trigger $trigger -Settings $settings -Description 'Lattix agent orchestration' -Force`,
     ].join('; ');
     this.exec(`powershell -NoProfile -Command "${psCmd}"`);
   }
 
   uninstall(): void {
-    this.exec(`powershell -NoProfile -Command "Unregister-ScheduledTask -TaskName '${TASK_NAME}' -Confirm:\\$false"`);
+    this.exec(`powershell -NoProfile -Command "Unregister-ScheduledTask -TaskName '${TASK_NAME}' -Confirm:$false"`);
   }
 
   private findNpx(): string {
