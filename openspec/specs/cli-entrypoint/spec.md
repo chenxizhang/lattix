@@ -47,8 +47,22 @@ The system SHALL provide a `stop` command that terminates the running Lattix ins
 - **WHEN** the user runs `lattix stop`
 - **THEN** the system SHALL terminate the running Lattix process and clean up the PID file
 
+### Requirement: Install command
+The system SHALL provide an `install` command that creates a scheduled task for Lattix auto-start on login.
+
+#### Scenario: Install command registered
+- **WHEN** the user runs `lattix --help`
+- **THEN** the help output SHALL list the `install` command with a description
+
+### Requirement: Uninstall command
+The system SHALL provide an `uninstall` command that removes the Lattix scheduled task and stops the running instance.
+
+#### Scenario: Uninstall command registered
+- **WHEN** the user runs `lattix --help`
+- **THEN** the help output SHALL list the `uninstall` command with a description
+
 ### Requirement: Version and help
-The system SHALL provide `--version` and `--help` flags following standard CLI conventions.
+The system SHALL provide `--version` and `--help` flags following standard CLI conventions. The help output SHALL display the current local version and the latest version available on npmjs.org.
 
 #### Scenario: Showing version
 - **WHEN** the user runs `lattix --version`
@@ -56,4 +70,8 @@ The system SHALL provide `--version` and `--help` flags following standard CLI c
 
 #### Scenario: Showing help
 - **WHEN** the user runs `lattix --help`
-- **THEN** the system SHALL display usage information listing all available commands (`run`, `submit`, `status`, `stop`) and their options
+- **THEN** the system SHALL display usage information listing all available commands (`run`, `submit`, `status`, `stop`, `install`, `uninstall`) and their options
+
+#### Scenario: Help shows version comparison
+- **WHEN** the user runs `lattix --help`
+- **THEN** the help output SHALL display the current version and the latest version from npmjs.org. If the latest version is newer, it SHALL indicate an update is available

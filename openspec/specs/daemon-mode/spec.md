@@ -15,7 +15,7 @@ The system SHALL support a `--daemon` (short form: `-d`) flag on the `run` comma
 - **THEN** the detached child process SHALL run with poll-interval 30 and concurrency 2
 
 ### Requirement: Single instance enforcement
-The system SHALL enforce that only one `lattix run` process is active at a time, regardless of whether it was started in foreground or daemon mode. The PID file at `~/.lattix/lattix.pid` SHALL be used to track the running instance.
+The system SHALL enforce that only one `lattix run` process is active at a time, regardless of whether it was started in foreground or daemon mode. The PID file at `~/.lattix/lattix.pid` SHALL be used to track the running instance. When a scheduled task is installed, the `run` command SHALL display task status information.
 
 #### Scenario: Foreground run blocked by existing instance
 - **WHEN** the user runs `lattix run` and another Lattix instance (foreground or daemon) is already running
@@ -24,6 +24,14 @@ The system SHALL enforce that only one `lattix run` process is active at a time,
 #### Scenario: Daemon run blocked by existing foreground instance
 - **WHEN** the user runs `lattix run --daemon` and a foreground `lattix run` is already running
 - **THEN** the system SHALL print an error message including the existing PID and exit with a non-zero code
+
+#### Scenario: Run with scheduled task installed and running
+- **WHEN** the user runs `lattix run` and a scheduled task is installed and the daemon is running
+- **THEN** the system SHALL display that Lattix is running with auto-start on login and exit with code 0
+
+#### Scenario: Run with scheduled task installed but not running
+- **WHEN** the user runs `lattix run` and a scheduled task is installed but the daemon is not running
+- **THEN** the system SHALL display that auto-start is configured and proceed to start the daemon normally
 
 #### Scenario: Stale PID file
 - **WHEN** the user runs `lattix run` (foreground or daemon) and a PID file exists but the process is no longer running
@@ -60,7 +68,7 @@ The system SHALL redirect all stdout and stderr output to a log file when runnin
 - **THEN** the entry SHALL be prefixed with an ISO-8601 timestamp and a level indicator (e.g., `[INFO]`, `[ERROR]`)
 
 ### Requirement: Stop command
-The system SHALL provide a `lattix stop` command that terminates the running Lattix instance by reading the PID file and sending SIGTERM to the process.
+The system SHALL provide a `lattix stop` command that terminates the running Lattix instance by reading the PID file and sending SIGTERM to the process. The stop command is PID-based only and does not interact with scheduled tasks.
 
 #### Scenario: Stopping a running instance
 - **WHEN** the user runs `lattix stop` and a Lattix instance is running
@@ -71,12 +79,24 @@ The system SHALL provide a `lattix stop` command that terminates the running Lat
 - **THEN** the system SHALL print an informational message indicating Lattix is not running and clean up any stale PID file
 
 ### Requirement: Status shows process info
-The `lattix status` command SHALL display the running Lattix process information before listing tasks. This includes the PID, the run mode (foreground or daemon), and the log file location when applicable.
+The `lattix status` command SHALL display the running Lattix process information before listing tasks. This includes the PID, the run mode (foreground, daemon, or auto-start on login), and the log file location when applicable. The status output SHALL also display the current version and the latest version available on npmjs.org.
 
 #### Scenario: Status with running daemon
-- **WHEN** the user runs `lattix status` and a Lattix daemon is running
+- **WHEN** the user runs `lattix status` and a Lattix daemon is running (no scheduled task)
 - **THEN** the system SHALL display the process PID, indicate daemon (background) mode, and show the log file path
+
+#### Scenario: Status with auto-start and running
+- **WHEN** the user runs `lattix status` and a scheduled task is installed and the daemon is running
+- **THEN** the system SHALL display the process PID and indicate "daemon (auto-start on login)" mode
+
+#### Scenario: Status with auto-start but not running
+- **WHEN** the user runs `lattix status` and a scheduled task is installed but the daemon is not running
+- **THEN** the system SHALL display that auto-start is configured but Lattix is not currently running
 
 #### Scenario: Status with no running instance
 - **WHEN** the user runs `lattix status` and no Lattix instance is running
 - **THEN** the system SHALL display that Lattix is not running
+
+#### Scenario: Status shows version info
+- **WHEN** the user runs `lattix status`
+- **THEN** the output SHALL display the current version and the latest version from npmjs.org. If the latest version is newer, it SHALL indicate an update is available
