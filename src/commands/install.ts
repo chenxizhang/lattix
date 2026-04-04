@@ -5,7 +5,6 @@ interface InstallDependencies {
   taskManager?: ScheduledTaskManager;
   daemonService?: DaemonService;
   exit?: (code: number) => never;
-  runDaemon?: () => void;
 }
 
 export function installCommand(
@@ -17,39 +16,44 @@ export function installCommand(
   const daemonService = dependencies.daemonService ?? new DaemonService();
   const exit = dependencies.exit ?? ((code: number) => process.exit(code)) as (code: number) => never;
 
-  const taskState = taskManager.queryTaskState();
-
-  if (taskState === 'installed') {
-    console.log('ℹ️ Lattix scheduled task is already installed.');
-    console.log(`   Task name: ${taskManager.getTaskName()}`);
-
-    const pid = daemonService.readPid();
-    if (pid !== null && daemonService.isRunning(pid)) {
-      console.log(`   Status: running (PID ${pid})`);
+  // Check for running instance (any mode)
+  const existingPid = daemonService.checkExistingDaemon();
+  if (existingPid !== null) {
+    const taskState = taskManager.queryTaskState();
+    if (taskState === 'installed') {
+      console.log('ℹ️ Lattix scheduled task is already installed and running.');
+      console.log(`   PID: ${existingPid}`);
     } else {
-      console.log('   Status: not running');
-      console.log('   Run `lattix run` to start, or it will auto-start on next login.');
+      console.error(`❌ Lattix is already running (PID ${existingPid}). Stop it first with \`lattix stop\`.`);
+      return exit(1);
     }
     return;
   }
 
+  const taskState = taskManager.queryTaskState();
+
   try {
-    taskManager.install();
-    console.log('✅ Lattix scheduled task installed');
-    console.log(`   Task name: ${taskManager.getTaskName()}`);
-    console.log('   Lattix will auto-start on login via `npx lattix run -d`');
+    if (taskState !== 'installed') {
+      taskManager.install();
+      console.log('✅ Lattix scheduled task installed');
+      console.log(`   Task name: ${taskManager.getTaskName()}`);
+      console.log('   Lattix will auto-start on login via `npx lattix run -d`');
+    } else {
+      console.log('ℹ️ Lattix scheduled task is already installed.');
+    }
+
+    // Start the task immediately
+    console.log('🚀 Starting Lattix...');
+    taskManager.startTask();
+    // Wait a moment for the daemon to write its PID
+    setTimeout(() => {
+      const pid = daemonService.readPid();
+      if (pid !== null) {
+        console.log(`🟢 Lattix started (PID ${pid})`);
+      }
+    }, 3000);
   } catch (err) {
-    console.error(`❌ Failed to install scheduled task: ${(err as Error).message}`);
+    console.error(`❌ Failed to install/start scheduled task: ${(err as Error).message}`);
     return exit(1);
   }
-
-  // Start daemon immediately
-  console.log('🚀 Starting Lattix now...');
-  const runDaemon = dependencies.runDaemon ?? (() => {
-    const { execSync } = require('child_process');
-    try {
-      execSync('npx lattix run -d', { stdio: 'inherit' });
-    } catch { /* daemon spawns and parent exits, which looks like an error */ }
-  });
-  runDaemon();
 }

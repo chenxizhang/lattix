@@ -43,7 +43,6 @@ export async function runCommand(options: RunOptions, dependencies: RunDependenc
   if (!options._daemonChild) {
     const taskState = taskManager.queryTaskState();
     if (taskState === 'installed') {
-      // Task is installed — check if process is already running
       const existingPid = daemonService.checkExistingDaemon();
       if (existingPid !== null) {
         console.log(`ℹ️ Lattix is running (PID ${existingPid}) with auto-start on login.`);
@@ -51,8 +50,11 @@ export async function runCommand(options: RunOptions, dependencies: RunDependenc
         exit(0);
         return undefined as never;
       }
-      // Task installed but not running — start daemon
-      console.log('ℹ️ Lattix auto-start is configured. Starting daemon...');
+      // Task installed but not running — start via scheduled task
+      console.log('ℹ️ Lattix auto-start is configured. Starting via scheduled task...');
+      taskManager.startTask();
+      exit(0);
+      return undefined as never;
     }
   }
 

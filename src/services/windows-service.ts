@@ -55,6 +55,10 @@ export class ScheduledTaskManager {
     this.exec(`powershell -NoProfile -Command "Unregister-ScheduledTask -TaskName '${TASK_NAME}' -Confirm:$false"`);
   }
 
+  startTask(): void {
+    this.exec(`powershell -NoProfile -Command "Start-ScheduledTask -TaskName '${TASK_NAME}'"`);
+  }
+
   private findNpx(): string {
     // Find the npx executable path
     try {

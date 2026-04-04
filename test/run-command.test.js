@@ -261,25 +261,21 @@ test('run command writes PID file in foreground mode', async () => {
   assert.equal(typeof pidWritten, 'number', 'PID should be a number');
 });
 
-test('run command shows info when scheduled task is installed and running', async () => {
+test('run command starts via scheduled task when task installed but not running', async () => {
   const { runCommand } = require('../dist/commands/run.js');
   let exitCode = null;
+  let taskStarted = false;
 
   const deps = createMockDeps({
     taskManager: {
       queryTaskState() { return 'installed'; },
-    },
-    daemonService: {
-      checkExistingDaemon() { return 12345; },
-      writePid() {},
-      removePid() {},
-      getPidPath() { return 'C:\\temp\\lattix.pid'; },
-      getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
+      startTask() { taskStarted = true; },
     },
     exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
   });
 
   try { await runCommand({ pollInterval: '10', concurrency: '1' }, deps); } catch { /* expected */ }
 
-  assert.equal(exitCode, 0, 'should exit with 0 (informational)');
+  assert.ok(taskStarted, 'should start via scheduled task');
+  assert.equal(exitCode, 0);
 });
