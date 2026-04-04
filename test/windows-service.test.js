@@ -7,21 +7,24 @@ function createManager(overrides = {}) {
   return { mgr };
 }
 
-test('queryTaskState returns "installed" when schtasks succeeds', () => {
+test('queryTaskState returns "installed" when PowerShell succeeds', () => {
   const { mgr } = createManager({
-    execSyncFn: () => 'TaskName: Lattix\r\nStatus: Ready\r\n',
+    execSyncFn: () => '',
   });
   assert.equal(mgr.queryTaskState(), 'installed');
 });
 
-test('queryTaskState returns "not-installed" when schtasks fails', () => {
+test('queryTaskState returns "not-installed" when PowerShell fails', () => {
   const { mgr } = createManager({
-    execSyncFn: () => { throw new Error('task not found'); },
+    execSyncFn: (cmd) => {
+      if (cmd.includes('Get-ScheduledTask')) throw new Error('task not found');
+      return '';
+    },
   });
   assert.equal(mgr.queryTaskState(), 'not-installed');
 });
 
-test('install calls schtasks /create', () => {
+test('install calls Register-ScheduledTask', () => {
   const calledCmds = [];
   const { mgr } = createManager({
     execSyncFn: (cmd) => {
@@ -31,20 +34,19 @@ test('install calls schtasks /create', () => {
     },
   });
   mgr.install();
-  const createCmd = calledCmds.find(c => c.includes('schtasks'));
-  assert.ok(createCmd, 'should call schtasks');
-  assert.ok(createCmd.includes('/create'));
-  assert.ok(createCmd.includes('Lattix'));
-  assert.ok(createCmd.includes('ONLOGON'));
+  const installCmd = calledCmds.find(c => c.includes('Register-ScheduledTask'));
+  assert.ok(installCmd, 'should call Register-ScheduledTask');
+  assert.ok(installCmd.includes('Lattix'));
+  assert.ok(installCmd.includes('AtLogOn'));
 });
 
-test('uninstall calls schtasks /delete', () => {
+test('uninstall calls Unregister-ScheduledTask', () => {
   let calledCmd = null;
   const { mgr } = createManager({
     execSyncFn: (cmd) => { calledCmd = cmd; return ''; },
   });
   mgr.uninstall();
-  assert.ok(calledCmd.includes('schtasks /delete'));
+  assert.ok(calledCmd.includes('Unregister-ScheduledTask'));
   assert.ok(calledCmd.includes('Lattix'));
 });
 

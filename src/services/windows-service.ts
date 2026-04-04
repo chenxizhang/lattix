@@ -33,7 +33,7 @@ export class ScheduledTaskManager {
 
   queryTaskState(): TaskState {
     try {
-      this.exec(`schtasks /query /tn "${TASK_NAME}" /fo LIST`);
+      this.exec(`powershell -NoProfile -Command "Get-ScheduledTask -TaskName '${TASK_NAME}' -ErrorAction Stop | Out-Null" 2>$null`);
       return 'installed';
     } catch {
       return 'not-installed';
@@ -41,14 +41,18 @@ export class ScheduledTaskManager {
   }
 
   install(): void {
-    // Use npx lattix run -d as the command, so it always uses the latest version
     const npxPath = this.findNpx();
-    const cmd = `schtasks /create /tn "${TASK_NAME}" /tr "\\"${npxPath}\\" lattix run -d" /sc ONLOGON /rl LIMITED /f`;
-    this.exec(cmd);
+    const psCmd = [
+      `$action = New-ScheduledTaskAction -Execute '${npxPath}' -Argument 'lattix run -d'`,
+      `$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME`,
+      `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0`,
+      `Register-ScheduledTask -TaskName '${TASK_NAME}' -Action $action -Trigger $trigger -Settings $settings -Description 'Lattix agent orchestration' -Force`,
+    ].join('; ');
+    this.exec(`powershell -NoProfile -Command "${psCmd}"`);
   }
 
   uninstall(): void {
-    this.exec(`schtasks /delete /tn "${TASK_NAME}" /f`);
+    this.exec(`powershell -NoProfile -Command "Unregister-ScheduledTask -TaskName '${TASK_NAME}' -Confirm:\\$false"`);
   }
 
   private findNpx(): string {
