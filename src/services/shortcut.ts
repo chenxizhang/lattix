@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import { execSync } from 'child_process';
 
 export interface ShortcutResult {
@@ -11,22 +10,32 @@ export interface ShortcutResult {
 }
 
 export interface ShortcutDependencies {
-  homedir?: string;
   execSyncFn?: (cmd: string) => string;
   scriptPath?: string;
   argv?: string[];
 }
 
 export class ShortcutService {
-  private readonly lattixBinDir: string;
-  private readonly wrapperPath: string;
   private readonly deps: ShortcutDependencies;
 
   constructor(deps: ShortcutDependencies = {}) {
     this.deps = deps;
-    const home = deps.homedir ?? os.homedir();
-    this.lattixBinDir = path.join(home, '.lattix', 'bin');
-    this.wrapperPath = path.join(this.lattixBinDir, 'lattix.cmd');
+  }
+
+  private exec(cmd: string): string {
+    const execFn = this.deps.execSyncFn ?? ((c: string) => execSync(c, {
+      encoding: 'utf-8',
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }));
+    return execFn(cmd);
+  }
+
+  /**
+   * Get the npm global bin directory (already in PATH from Node.js install).
+   */
+  private getNpmGlobalBin(): string {
+    return this.exec('npm config get prefix').trim();
   }
 
   /**
@@ -42,12 +51,7 @@ export class ShortcutService {
    */
   isGloballyInstalled(): boolean {
     try {
-      const execFn = this.deps.execSyncFn ?? ((cmd: string) => execSync(cmd, {
-        encoding: 'utf-8',
-        windowsHide: true,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }));
-      const result = execFn('where lattix').trim();
+      const result = this.exec('where lattix').trim();
       const paths = result.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
       // Exclude npx cache paths
       const globalPaths = paths.filter(p => !p.includes('_npx') && !p.includes('npm-cache'));
@@ -58,44 +62,25 @@ export class ShortcutService {
   }
 
   /**
-   * Check if the wrapper .cmd file already exists.
+   * Check if the wrapper .cmd file already exists in npm global bin.
    */
   wrapperExists(): boolean {
-    return fs.existsSync(this.wrapperPath);
+    try {
+      const binDir = this.getNpmGlobalBin();
+      return fs.existsSync(path.join(binDir, 'lattix.cmd'));
+    } catch {
+      return false;
+    }
   }
 
   /**
-   * Create the lattix.cmd wrapper in ~/.lattix/bin/.
+   * Create the lattix.cmd wrapper in the npm global bin directory.
+   * This directory is already in PATH, so the command is immediately available.
    */
   createWrapper(): void {
-    if (!fs.existsSync(this.lattixBinDir)) {
-      fs.mkdirSync(this.lattixBinDir, { recursive: true });
-    }
-    fs.writeFileSync(this.wrapperPath, '@npx -y lattix %*\r\n', 'utf-8');
-  }
-
-  /**
-   * Add ~/.lattix/bin to the user's PATH if not already present.
-   */
-  addToPath(): void {
-    try {
-      const execFn = this.deps.execSyncFn ?? ((cmd: string) => execSync(cmd, {
-        encoding: 'utf-8',
-        windowsHide: true,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }));
-      // Read current user PATH
-      const currentPath = execFn('powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable(\'Path\', \'User\')"').trim();
-      const pathDirs = currentPath.split(';').map(p => p.trim().toLowerCase());
-      const binDirLower = this.lattixBinDir.toLowerCase();
-
-      if (!pathDirs.includes(binDirLower)) {
-        const newPath = currentPath ? `${currentPath};${this.lattixBinDir}` : this.lattixBinDir;
-        execFn(`powershell -NoProfile -Command "[Environment]::SetEnvironmentVariable('Path', '${newPath.replace(/'/g, "''")}', 'User')"`);
-      }
-    } catch {
-      // Silently ignore PATH modification failures
-    }
+    const binDir = this.getNpmGlobalBin();
+    const wrapperPath = path.join(binDir, 'lattix.cmd');
+    fs.writeFileSync(wrapperPath, '@npx -y lattix %*\r\n', 'utf-8');
   }
 
   /**
@@ -128,9 +113,7 @@ export class ShortcutService {
 
       // Create wrapper and add to PATH
       this.createWrapper();
-      this.addToPath();
-      console.log(`\n🔗 Shortcut created: you can use \`lattix\` instead of \`npx -y lattix\``);
-      console.log(`   Please restart your terminal for the shortcut to take effect.\n`);
+      console.log(`\n🔗 \`lattix\` command is now available (shortcut to \`npx -y lattix\`)\n`);
 
       return { shortcutAvailable: true, action: 'wrapper-created' };
     } catch (err) {

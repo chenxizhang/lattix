@@ -4,22 +4,24 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-function createTempHome() {
+function createTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'lattix-sc-'));
 }
 
 function createService(overrides = {}) {
   const { ShortcutService } = require('../dist/services/shortcut.js');
-  const homedir = overrides.homedir || createTempHome();
+  const npmPrefix = overrides.npmPrefix || createTempDir();
   return {
     service: new ShortcutService({
-      homedir,
       scriptPath: overrides.scriptPath || '/some/path/_npx/123/node_modules/.bin/lattix',
       argv: overrides.argv || ['node', 'dist/cli.js', 'run'],
-      execSyncFn: overrides.execSyncFn || (() => ''),
+      execSyncFn: overrides.execSyncFn || ((cmd) => {
+        if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
+        return '';
+      }),
       ...overrides,
     }),
-    homedir,
+    npmPrefix,
   };
 }
 
@@ -82,70 +84,48 @@ test('ShortcutService isGloballyInstalled returns false when where command fails
 });
 
 // createWrapper tests
-test('ShortcutService createWrapper creates lattix.cmd with correct content', () => {
-  const homedir = createTempHome();
-  const { service } = createService({ homedir });
+test('ShortcutService createWrapper creates lattix.cmd in npm prefix dir', () => {
+  const npmPrefix = createTempDir();
+  const { service } = createService({
+    execSyncFn: (cmd) => {
+      if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
+      return '';
+    },
+  });
 
   service.createWrapper();
 
-  const wrapperPath = path.join(homedir, '.lattix', 'bin', 'lattix.cmd');
-  assert.ok(fs.existsSync(wrapperPath), 'wrapper file should exist');
+  const wrapperPath = path.join(npmPrefix, 'lattix.cmd');
+  assert.ok(fs.existsSync(wrapperPath), 'wrapper file should exist in npm prefix');
   const content = fs.readFileSync(wrapperPath, 'utf-8');
   assert.ok(content.includes('@npx -y lattix %*'), 'wrapper should delegate to npx');
 
-  fs.rmSync(homedir, { recursive: true, force: true });
+  fs.rmSync(npmPrefix, { recursive: true, force: true });
 });
 
 test('ShortcutService wrapperExists returns false when no wrapper', () => {
-  const homedir = createTempHome();
-  const { service } = createService({ homedir });
+  const npmPrefix = createTempDir();
+  const { service } = createService({
+    execSyncFn: (cmd) => {
+      if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
+      return '';
+    },
+  });
   assert.equal(service.wrapperExists(), false);
-  fs.rmSync(homedir, { recursive: true, force: true });
+  fs.rmSync(npmPrefix, { recursive: true, force: true });
 });
 
 test('ShortcutService wrapperExists returns true after createWrapper', () => {
-  const homedir = createTempHome();
-  const { service } = createService({ homedir });
+  const npmPrefix = createTempDir();
+  const { service } = createService({
+    execSyncFn: (cmd) => {
+      if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
+      return '';
+    },
+  });
   service.createWrapper();
   assert.equal(service.wrapperExists(), true);
-  fs.rmSync(homedir, { recursive: true, force: true });
-});
-
-// addToPath tests
-test('ShortcutService addToPath calls setx when bin dir not in PATH', () => {
-  const cmds = [];
-  const homedir = createTempHome();
-  const { service } = createService({
-    homedir,
-    execSyncFn: (cmd) => {
-      cmds.push(cmd);
-      if (cmd.includes('GetEnvironmentVariable')) return 'C:\\Windows;C:\\Windows\\System32';
-      return '';
-    },
-  });
-  service.addToPath();
-  const setCmd = cmds.find(c => c.includes('SetEnvironmentVariable'));
-  assert.ok(setCmd, 'should call SetEnvironmentVariable');
-  assert.ok(setCmd.includes('.lattix'), 'should include .lattix\\bin in PATH');
-  fs.rmSync(homedir, { recursive: true, force: true });
-});
-
-test('ShortcutService addToPath skips when bin dir already in PATH', () => {
-  const cmds = [];
-  const homedir = createTempHome();
-  const binDir = path.join(homedir, '.lattix', 'bin');
-  const { service } = createService({
-    homedir,
-    execSyncFn: (cmd) => {
-      cmds.push(cmd);
-      if (cmd.includes('GetEnvironmentVariable')) return `C:\\Windows;${binDir}`;
-      return '';
-    },
-  });
-  service.addToPath();
-  const setCmd = cmds.find(c => c.includes('SetEnvironmentVariable'));
-  assert.equal(setCmd, undefined, 'should NOT call SetEnvironmentVariable when already in PATH');
-  fs.rmSync(homedir, { recursive: true, force: true });
+  fs.rmSync(npmPrefix, { recursive: true, force: true });
 });
 
 // ensureShortcut integration tests
@@ -178,33 +158,28 @@ test('ShortcutService ensureShortcut skips when globally installed', () => {
 });
 
 test('ShortcutService ensureShortcut skips when wrapper already exists', () => {
-  const homedir = createTempHome();
-  const binDir = path.join(homedir, '.lattix', 'bin');
-  fs.mkdirSync(binDir, { recursive: true });
-  fs.writeFileSync(path.join(binDir, 'lattix.cmd'), '@npx -y lattix %*\r\n');
+  const npmPrefix = createTempDir();
+  fs.writeFileSync(path.join(npmPrefix, 'lattix.cmd'), '@npx -y lattix %*\r\n');
 
   const { service } = createService({
-    homedir,
     execSyncFn: (cmd) => {
       if (cmd.startsWith('where')) throw new Error('not found');
+      if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
       return '';
     },
   });
   const result = service.ensureShortcut();
   assert.equal(result.action, 'skipped-wrapper-exists');
   assert.equal(result.shortcutAvailable, true);
-  fs.rmSync(homedir, { recursive: true, force: true });
+  fs.rmSync(npmPrefix, { recursive: true, force: true });
 });
 
-test('ShortcutService ensureShortcut creates wrapper and reports available', () => {
-  const homedir = createTempHome();
-  const cmds = [];
+test('ShortcutService ensureShortcut creates wrapper in npm prefix and reports available', () => {
+  const npmPrefix = createTempDir();
   const { service } = createService({
-    homedir,
     execSyncFn: (cmd) => {
-      cmds.push(cmd);
       if (cmd.startsWith('where')) throw new Error('not found');
-      if (cmd.includes('GetEnvironmentVariable')) return 'C:\\Windows';
+      if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
       return '';
     },
   });
@@ -212,22 +187,18 @@ test('ShortcutService ensureShortcut creates wrapper and reports available', () 
   assert.equal(result.action, 'wrapper-created');
   assert.equal(result.shortcutAvailable, true);
 
-  // Verify wrapper was created
-  const wrapperPath = path.join(homedir, '.lattix', 'bin', 'lattix.cmd');
-  assert.ok(fs.existsSync(wrapperPath), 'wrapper file should be created');
+  // Verify wrapper was created in npm prefix
+  const wrapperPath = path.join(npmPrefix, 'lattix.cmd');
+  assert.ok(fs.existsSync(wrapperPath), 'wrapper file should be created in npm prefix');
 
-  // Verify PATH was modified
-  const setCmd = cmds.find(c => c.includes('SetEnvironmentVariable'));
-  assert.ok(setCmd, 'should add to PATH');
-
-  fs.rmSync(homedir, { recursive: true, force: true });
+  fs.rmSync(npmPrefix, { recursive: true, force: true });
 });
 
 test('ShortcutService ensureShortcut returns error action on failure', () => {
   const { service } = createService({
-    homedir: 'Z:\\nonexistent\\path\\that\\cannot\\be\\created',
     execSyncFn: (cmd) => {
       if (cmd.startsWith('where')) throw new Error('not found');
+      if (cmd.includes('npm config get prefix')) return 'Z:\\nonexistent\\path\n';
       return '';
     },
   });

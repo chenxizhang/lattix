@@ -34,7 +34,7 @@ No servers, no databases, no control plane — just distributed coordination thr
 npx -y lattix run
 ```
 
-On first run, Lattix automatically creates a `lattix` shortcut command so you can use `lattix` directly in the future (requires a terminal restart). If you've already installed globally via `npm install -g lattix`, the shortcut creation is skipped.
+On first run, Lattix automatically creates a `lattix` shortcut command in your npm global directory, so you can use `lattix` directly — immediately, no terminal restart needed. If you've already installed globally via `npm install -g lattix`, the shortcut creation is skipped.
 
 Or install globally:
 
@@ -154,8 +154,6 @@ lattix status task-20260402120000-abc123
 ├── lattix.pid           # PID file (present when running in any mode)
 ├── lattix.log           # Log file (daemon and auto-start modes)
 ├── start-lattix.vbs     # Auto-start launcher (created by install)
-├── bin/
-│   └── lattix.cmd       # Shortcut wrapper (auto-created on first npx run)
 ├── tasks/ → OneDrive    # Symlink to the selected <OneDrive>\Lattix\tasks
 │   ├── task-001.json
 │   └── task-002.json
