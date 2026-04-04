@@ -1,18 +1,14 @@
 ## ADDED Requirements
 
 ### Requirement: Install command
-The system SHALL provide an `install` command that registers Lattix as a Windows Service.
+The system SHALL provide an `install` command that creates a scheduled task for Lattix auto-start on login.
 
 #### Scenario: Install command registered
 - **WHEN** the user runs `lattix --help`
 - **THEN** the help output SHALL list the `install` command with a description
 
-#### Scenario: Install command accepts options
-- **WHEN** the user runs `lattix install --poll-interval 30 --concurrency 2`
-- **THEN** the system SHALL pass the options to the service installer
-
 ### Requirement: Uninstall command
-The system SHALL provide an `uninstall` command that removes the Lattix Windows Service.
+The system SHALL provide an `uninstall` command that removes the Lattix scheduled task and stops the running instance.
 
 #### Scenario: Uninstall command registered
 - **WHEN** the user runs `lattix --help`
