@@ -3,13 +3,13 @@ import * as path from 'path';
 import { TaskFile, ResultFile } from '../types';
 import { SetupService } from '../services/setup';
 import { DaemonService } from '../services/daemon';
-import { WindowsServiceManager } from '../services/windows-service';
+import { ScheduledTaskManager } from '../services/windows-service';
 import { VersionChecker } from '../services/version-checker';
 import { bootstrap } from '../services/bootstrap';
 
 interface StatusDependencies {
   daemonService?: DaemonService;
-  serviceManager?: WindowsServiceManager;
+  taskManager?: ScheduledTaskManager;
   versionChecker?: VersionChecker;
   setup?: Pick<SetupService, 'loadConfig' | 'setup' | 'getTasksDir' | 'getOutputDir'>;
   bootstrapFn?: (deps: { setup: Pick<SetupService, 'loadConfig' | 'setup'> }) => Promise<unknown>;
@@ -18,7 +18,7 @@ interface StatusDependencies {
 export async function statusCommand(taskId?: string, _cmdObj?: unknown, dependencies: StatusDependencies = {}): Promise<void> {
   const setup = dependencies.setup ?? new SetupService();
   const daemonService = dependencies.daemonService ?? new DaemonService();
-  const serviceManager = dependencies.serviceManager ?? new WindowsServiceManager();
+  const taskManager = dependencies.taskManager ?? new ScheduledTaskManager();
   const versionChecker = dependencies.versionChecker ?? new VersionChecker();
 
   await (dependencies.bootstrapFn ?? bootstrap)({ setup });
@@ -30,7 +30,7 @@ export async function statusCommand(taskId?: string, _cmdObj?: unknown, dependen
   await showVersionInfo(versionChecker);
 
   // Show running process info
-  showProcessInfo(daemonService, serviceManager);
+  showProcessInfo(daemonService, taskManager);
 
   if (taskId) {
     showTaskDetail(taskId, tasksDir, outputDir);
@@ -39,46 +39,37 @@ export async function statusCommand(taskId?: string, _cmdObj?: unknown, dependen
   }
 }
 
-function showProcessInfo(daemonService: DaemonService, serviceManager: WindowsServiceManager): void {
-  const serviceState = serviceManager.queryServiceState();
+function showProcessInfo(daemonService: DaemonService, taskManager: ScheduledTaskManager): void {
+  const taskState = taskManager.queryTaskState();
   const pid = daemonService.readPid();
+  const autoStart = taskState === 'installed';
 
-  if (serviceState === 'running') {
-    console.log(`🟢 Lattix is running${pid ? ` (PID ${pid})` : ''}`);
-    console.log(`   Mode: Windows Service`);
-    console.log(`   Service name: ${serviceManager.getServiceName()}`);
-    const logPath = daemonService.getDefaultLogPath();
-    if (fs.existsSync(logPath)) {
-      console.log(`   Log file: ${logPath}`);
+  if (pid !== null && daemonService.isRunning(pid)) {
+    console.log(`🟢 Lattix is running (PID ${pid})`);
+    if (autoStart) {
+      console.log('   Mode: daemon (auto-start on login)');
+    } else {
+      const logPath = daemonService.getDefaultLogPath();
+      const hasLogFile = fs.existsSync(logPath);
+      console.log(`   Mode: ${hasLogFile ? 'daemon (background)' : 'foreground'}`);
+      if (hasLogFile) {
+        console.log(`   Log file: ${logPath}`);
+      }
     }
     console.log(`   PID file: ${daemonService.getPidPath()}`);
     console.log();
     return;
   }
 
-  if (serviceState === 'stopped') {
-    console.log('⚪ Lattix service is installed but stopped\n');
+  if (autoStart) {
+    console.log('⚪ Lattix auto-start is configured but not currently running');
+    console.log('   Run `lattix run` to start, or it will auto-start on next login.\n');
     if (pid !== null) daemonService.removePid();
     return;
   }
 
-  if (pid === null || !daemonService.isRunning(pid)) {
-    console.log('⚪ Lattix is not running\n');
-    if (pid !== null) daemonService.removePid();
-    return;
-  }
-
-  // Determine mode: if the process was started with --_daemon-child, it's daemon mode
-  const logPath = daemonService.getDefaultLogPath();
-  const hasLogFile = fs.existsSync(logPath);
-
-  console.log(`🟢 Lattix is running (PID ${pid})`);
-  console.log(`   Mode: ${hasLogFile ? 'daemon (background)' : 'foreground'}`);
-  if (hasLogFile) {
-    console.log(`   Log file: ${logPath}`);
-  }
-  console.log(`   PID file: ${daemonService.getPidPath()}`);
-  console.log();
+  console.log('⚪ Lattix is not running\n');
+  if (pid !== null) daemonService.removePid();
 }
 
 async function showVersionInfo(versionChecker: VersionChecker): Promise<void> {

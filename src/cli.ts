@@ -49,14 +49,12 @@ program
 
 program
   .command('install')
-  .description('Install Lattix as a Windows Service (requires Administrator)')
-  .option('--poll-interval <seconds>', 'Polling interval in seconds', '10')
-  .option('--concurrency <number>', 'Maximum concurrent agent processes', '1')
+  .description('Install Lattix auto-start on login (scheduled task)')
   .action(installCommand);
 
 program
   .command('uninstall')
-  .description('Uninstall the Lattix Windows Service (requires Administrator)')
+  .description('Remove Lattix auto-start and stop running instance')
   .action(uninstallCommand);
 
 // Version check in help output (async fetch before parse)

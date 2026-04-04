@@ -3,184 +3,63 @@ import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
 
-export interface WindowsServiceDependencies {
+export interface ScheduledTaskDependencies {
   homedir?: string;
-  execSyncFn?: (cmd: string) => Buffer;
-  ServiceClass?: any;
-  packageRoot?: string;
+  execSyncFn?: (cmd: string, opts?: object) => string;
 }
 
-export type ServiceState = 'running' | 'stopped' | 'not-installed';
+export type TaskState = 'installed' | 'not-installed';
 
-const SERVICE_NAME = 'Lattix';
-const SERVICE_ID = 'lattix.exe';
+const TASK_NAME = 'Lattix';
 
-export class WindowsServiceManager {
+export class ScheduledTaskManager {
   private readonly lattixDir: string;
-  private readonly appDir: string;
-  private readonly pidPath: string;
-  private readonly deps: WindowsServiceDependencies;
+  private readonly deps: ScheduledTaskDependencies;
 
-  constructor(deps: WindowsServiceDependencies = {}) {
+  constructor(deps: ScheduledTaskDependencies = {}) {
     this.deps = deps;
     const home = deps.homedir ?? os.homedir();
     this.lattixDir = path.join(home, '.lattix');
-    this.appDir = path.join(this.lattixDir, 'app');
-    this.pidPath = path.join(this.lattixDir, 'lattix.pid');
   }
 
-  getAppDir(): string {
-    return this.appDir;
+  getTaskName(): string {
+    return TASK_NAME;
   }
 
-  getServiceName(): string {
-    return SERVICE_NAME;
+  private exec(cmd: string): string {
+    const execFn = this.deps.execSyncFn ?? ((c: string, opts?: object) => execSync(c, { encoding: 'utf-8', ...opts }));
+    return execFn(cmd);
   }
 
-  queryServiceState(): ServiceState {
-    const execSyncFn = this.deps.execSyncFn ?? ((cmd: string) => execSync(cmd));
+  queryTaskState(): TaskState {
     try {
-      const output = execSyncFn(`sc query "${SERVICE_ID}"`).toString();
-      // Parse numeric state code (locale-independent)
-      const match = output.match(/STATE\s+:\s+(\d+)/);
-      if (match) {
-        const stateCode = parseInt(match[1], 10);
-        if (stateCode === 4) return 'running';
-        return 'stopped';
-      }
-      return 'stopped';
+      this.exec(`schtasks /query /tn "${TASK_NAME}" /fo LIST`);
+      return 'installed';
     } catch {
       return 'not-installed';
     }
   }
 
-  isAdmin(): boolean {
-    const execSyncFn = this.deps.execSyncFn ?? ((cmd: string) => execSync(cmd));
+  install(): void {
+    // Use npx lattix run -d as the command, so it always uses the latest version
+    const npxPath = this.findNpx();
+    const cmd = `schtasks /create /tn "${TASK_NAME}" /tr "\\"${npxPath}\\" lattix run -d" /sc ONLOGON /rl LIMITED /f`;
+    this.exec(cmd);
+  }
+
+  uninstall(): void {
+    this.exec(`schtasks /delete /tn "${TASK_NAME}" /f`);
+  }
+
+  private findNpx(): string {
+    // Find the npx executable path
     try {
-      execSyncFn('net session');
-      return true;
+      const result = this.exec('where npx').trim().split(/\r?\n/);
+      // Prefer the .cmd version on Windows
+      const cmd = result.find(p => p.endsWith('.cmd')) ?? result[0];
+      return cmd.trim();
     } catch {
-      return false;
+      return 'npx';
     }
-  }
-
-  copyPackage(): void {
-    const sourceDir = this.deps.packageRoot ?? path.resolve(__dirname, '..', '..');
-    if (fs.existsSync(this.appDir)) {
-      fs.rmSync(this.appDir, { recursive: true, force: true });
-    }
-    fs.cpSync(sourceDir, this.appDir, {
-      recursive: true,
-      filter: (src: string) => {
-        // Skip node_modules/.cache and .git
-        const rel = path.relative(sourceDir, src);
-        if (rel.includes('.git')) return false;
-        return true;
-      },
-    });
-  }
-
-  removePackageCopy(): void {
-    if (fs.existsSync(this.appDir)) {
-      fs.rmSync(this.appDir, { recursive: true, force: true });
-    }
-  }
-
-  async install(args: string[], logFile: string): Promise<void> {
-    // Create a launcher script to bypass node-windows' broken scriptOptions parsing
-    // (node-windows converts array to comma-separated, but wrapper splits by space)
-    const launcherPath = path.join(this.appDir, 'service-launcher.js');
-    const cliPath = path.join(this.appDir, 'dist', 'cli.js').replace(/\\/g, '\\\\');
-    const logFilePath = logFile.replace(/\\/g, '\\\\');
-    const childArgs = ['run', '--_daemon-child', '--log-file', logFilePath, ...args];
-    const launcherContent = [
-      `// Auto-generated service launcher — do not edit`,
-      `process.argv = [process.execPath, __filename, ${childArgs.map(a => JSON.stringify(a)).join(', ')}];`,
-      `require("${cliPath}");`,
-    ].join('\n');
-    fs.writeFileSync(launcherPath, launcherContent, 'utf-8');
-
-    const ServiceClass = this.deps.ServiceClass ?? this._loadServiceClass();
-
-    const svc = new ServiceClass({
-      name: SERVICE_NAME,
-      description: 'Lattix agent orchestration service',
-      script: launcherPath,
-      nodeOptions: [],
-      grow: 0.5,
-      wait: 2,
-      maxRetries: 3,
-    });
-
-    return new Promise<void>((resolve, reject) => {
-      svc.on('install', () => {
-        svc.start();
-      });
-      svc.on('start', () => {
-        resolve();
-      });
-      svc.on('alreadyinstalled', () => {
-        reject(new Error('Service is already installed'));
-      });
-      svc.on('error', (err: Error) => {
-        reject(err);
-      });
-      svc.install();
-    });
-  }
-
-  async uninstall(): Promise<void> {
-    const launcherPath = path.join(this.appDir, 'service-launcher.js');
-    const scriptPath = fs.existsSync(launcherPath) ? launcherPath : path.join(this.appDir, 'dist', 'cli.js');
-    const ServiceClass = this.deps.ServiceClass ?? this._loadServiceClass();
-
-    const svc = new ServiceClass({
-      name: SERVICE_NAME,
-      script: scriptPath,
-    });
-
-    return new Promise<void>((resolve, reject) => {
-      svc.on('uninstall', () => {
-        resolve();
-      });
-      svc.on('error', (err: Error) => {
-        reject(err);
-      });
-
-      if (svc.exists) {
-        svc.stop();
-        // Give stop a moment before uninstalling
-        setTimeout(() => {
-          svc.uninstall();
-        }, 1000);
-      } else {
-        svc.uninstall();
-      }
-    });
-  }
-
-  startService(): void {
-    const execSyncFn = this.deps.execSyncFn ?? ((cmd: string) => execSync(cmd));
-    execSyncFn(`sc start "${SERVICE_ID}"`);
-  }
-
-  stopService(): void {
-    const execSyncFn = this.deps.execSyncFn ?? ((cmd: string) => execSync(cmd));
-    execSyncFn(`sc stop "${SERVICE_ID}"`);
-  }
-
-  removePid(): void {
-    try {
-      if (fs.existsSync(this.pidPath)) {
-        fs.unlinkSync(this.pidPath);
-      }
-    } catch {
-      // ignore cleanup errors
-    }
-  }
-
-  private _loadServiceClass(): any {
-    // Dynamic import to avoid issues when node-windows isn't installed
-    return require('node-windows').Service;
   }
 }

@@ -61,10 +61,8 @@ function createMockDeps(overrides = {}) {
       getPidPath() { return 'C:\\temp\\lattix.pid'; },
       getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
     },
-    serviceManager: overrides.serviceManager || {
-      queryServiceState() { return 'not-installed'; },
-      isAdmin() { return true; },
-      startService() {},
+    taskManager: overrides.taskManager || {
+      queryTaskState() { return 'not-installed'; },
     },
   };
 }
@@ -263,29 +261,20 @@ test('run command writes PID file in foreground mode', async () => {
   assert.equal(typeof pidWritten, 'number', 'PID should be a number');
 });
 
-test('run command shows info when service is stopped', async () => {
+test('run command shows info when scheduled task is installed and running', async () => {
   const { runCommand } = require('../dist/commands/run.js');
   let exitCode = null;
 
   const deps = createMockDeps({
-    serviceManager: {
-      queryServiceState() { return 'stopped'; },
+    taskManager: {
+      queryTaskState() { return 'installed'; },
     },
-    exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
-  });
-
-  try { await runCommand({ pollInterval: '10', concurrency: '1' }, deps); } catch { /* expected */ }
-
-  assert.equal(exitCode, 0, 'should exit with 0 (informational)');
-});
-
-test('run command shows info when service is running', async () => {
-  const { runCommand } = require('../dist/commands/run.js');
-  let exitCode = null;
-
-  const deps = createMockDeps({
-    serviceManager: {
-      queryServiceState() { return 'running'; },
+    daemonService: {
+      checkExistingDaemon() { return 12345; },
+      writePid() {},
+      removePid() {},
+      getPidPath() { return 'C:\\temp\\lattix.pid'; },
+      getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
     },
     exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
   });

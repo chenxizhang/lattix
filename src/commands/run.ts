@@ -3,7 +3,7 @@ import { TaskWatcher } from '../services/task-watcher';
 import { AgentExecutor } from '../services/agent-executor';
 import { ResultWriter } from '../services/result-writer';
 import { DaemonService } from '../services/daemon';
-import { WindowsServiceManager } from '../services/windows-service';
+import { ScheduledTaskManager } from '../services/windows-service';
 import { Logger } from '../services/logger';
 import { LattixConfig } from '../types';
 import { bootstrap } from '../services/bootstrap';
@@ -29,7 +29,7 @@ interface RunDependencies {
   registerSignal?: (signal: NodeJS.Signals, handler: () => void) => void;
   exit?: (code: number) => never;
   daemonService?: DaemonService;
-  serviceManager?: WindowsServiceManager;
+  taskManager?: ScheduledTaskManager;
   logger?: Logger;
   processArgv?: string[];
 }
@@ -37,23 +37,22 @@ interface RunDependencies {
 export async function runCommand(options: RunOptions, dependencies: RunDependencies = {}): Promise<void> {
   const exit = dependencies.exit ?? ((code: number) => process.exit(code));
   const daemonService = dependencies.daemonService ?? new DaemonService();
-  const serviceManager = dependencies.serviceManager ?? new WindowsServiceManager();
+  const taskManager = dependencies.taskManager ?? new ScheduledTaskManager();
 
-  // Skip service check when running as daemon child (service uses --_daemon-child)
+  // Skip scheduled task check when running as daemon child
   if (!options._daemonChild) {
-    const serviceState = serviceManager.queryServiceState();
-    if (serviceState === 'running') {
-      console.log('ℹ️ Lattix is installed and running as a Windows Service.');
-      console.log('   Use `lattix stop` to stop or `lattix uninstall` to remove.');
-      exit(0);
-      return undefined as never;
-    }
-    if (serviceState === 'stopped') {
-      console.log('ℹ️ Lattix is installed as a Windows Service but currently stopped.');
-      console.log('   To start:     Run `sc start lattix.exe` as Administrator');
-      console.log('   To uninstall: Run `lattix uninstall` as Administrator');
-      exit(0);
-      return undefined as never;
+    const taskState = taskManager.queryTaskState();
+    if (taskState === 'installed') {
+      // Task is installed — check if process is already running
+      const existingPid = daemonService.checkExistingDaemon();
+      if (existingPid !== null) {
+        console.log(`ℹ️ Lattix is running (PID ${existingPid}) with auto-start on login.`);
+        console.log('   Use `lattix stop` to stop or `lattix uninstall` to remove auto-start.');
+        exit(0);
+        return undefined as never;
+      }
+      // Task installed but not running — start daemon
+      console.log('ℹ️ Lattix auto-start is configured. Starting daemon...');
     }
   }
 

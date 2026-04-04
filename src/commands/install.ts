@@ -1,71 +1,55 @@
-import { WindowsServiceManager } from '../services/windows-service';
+import { ScheduledTaskManager } from '../services/windows-service';
 import { DaemonService } from '../services/daemon';
 
 interface InstallDependencies {
-  serviceManager?: WindowsServiceManager;
+  taskManager?: ScheduledTaskManager;
   daemonService?: DaemonService;
   exit?: (code: number) => never;
-  logFile?: string;
+  runDaemon?: () => void;
 }
 
-export async function installCommand(
-  options: { pollInterval?: string; concurrency?: string },
+export function installCommand(
+  _options?: unknown,
   _cmdObj?: unknown,
   dependencies: InstallDependencies = {}
-): Promise<void> {
-  const serviceManager = dependencies.serviceManager ?? new WindowsServiceManager();
+): void {
+  const taskManager = dependencies.taskManager ?? new ScheduledTaskManager();
   const daemonService = dependencies.daemonService ?? new DaemonService();
   const exit = dependencies.exit ?? ((code: number) => process.exit(code)) as (code: number) => never;
 
-  // Check admin privileges
-  if (!serviceManager.isAdmin()) {
-    console.error('❌ Administrator privileges required. Right-click your terminal and select "Run as administrator".');
-    return exit(1);
-  }
+  const taskState = taskManager.queryTaskState();
 
-  // Check for running non-service instance (foreground/daemon)
-  const existingPid = daemonService.checkExistingDaemon();
-  if (existingPid !== null) {
-    // Check if it's a service — if so, this is an upgrade
-    const serviceState = serviceManager.queryServiceState();
-    if (serviceState === 'not-installed') {
-      console.error(`❌ Lattix is already running in foreground/daemon mode (PID ${existingPid}). Stop it first with \`lattix stop\`.`);
-      return exit(1);
+  if (taskState === 'installed') {
+    console.log('ℹ️ Lattix scheduled task is already installed.');
+    console.log(`   Task name: ${taskManager.getTaskName()}`);
+
+    const pid = daemonService.readPid();
+    if (pid !== null && daemonService.isRunning(pid)) {
+      console.log(`   Status: running (PID ${pid})`);
+    } else {
+      console.log('   Status: not running');
+      console.log('   Run `lattix run` to start, or it will auto-start on next login.');
     }
+    return;
   }
-
-  const logFile = dependencies.logFile ?? daemonService.getDefaultLogPath();
-  const args: string[] = [];
-  if (options.pollInterval) {
-    args.push('--poll-interval', options.pollInterval);
-  }
-  if (options.concurrency) {
-    args.push('--concurrency', options.concurrency);
-  }
-
-  const serviceState = serviceManager.queryServiceState();
 
   try {
-    if (serviceState !== 'not-installed') {
-      // Upgrade: stop existing service, update package, restart
-      console.log('🔄 Upgrading Lattix service...');
-      try { serviceManager.stopService(); } catch { /* may already be stopped */ }
-      await serviceManager.uninstall();
-    }
-
-    // Copy package to stable location
-    console.log('📦 Copying Lattix to ~/.lattix/app/ ...');
-    serviceManager.copyPackage();
-
-    // Register and start the service
-    console.log('🔧 Registering Windows Service...');
-    await serviceManager.install(args, logFile);
-
-    console.log(`✅ Lattix service installed and started`);
-    console.log(`   Service name: ${serviceManager.getServiceName()}`);
-    console.log(`   Log file: ${logFile}`);
+    taskManager.install();
+    console.log('✅ Lattix scheduled task installed');
+    console.log(`   Task name: ${taskManager.getTaskName()}`);
+    console.log('   Lattix will auto-start on login via `npx lattix run -d`');
   } catch (err) {
-    console.error(`❌ Failed to install service: ${(err as Error).message}`);
+    console.error(`❌ Failed to install scheduled task: ${(err as Error).message}`);
     return exit(1);
   }
+
+  // Start daemon immediately
+  console.log('🚀 Starting Lattix now...');
+  const runDaemon = dependencies.runDaemon ?? (() => {
+    const { execSync } = require('child_process');
+    try {
+      execSync('npx lattix run -d', { stdio: 'inherit' });
+    } catch { /* daemon spawns and parent exits, which looks like an error */ }
+  });
+  runDaemon();
 }

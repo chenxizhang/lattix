@@ -20,9 +20,9 @@ function createMockDeps(overrides = {}) {
       getDefaultLogPath() { return path.join(os.tmpdir(), 'lattix.log'); },
       getPidPath() { return path.join(os.tmpdir(), 'lattix.pid'); },
     },
-    serviceManager: {
-      queryServiceState() { return 'not-installed'; },
-      getServiceName() { return 'Lattix'; },
+    taskManager: {
+      queryTaskState() { return 'not-installed'; },
+      getTaskName() { return 'Lattix'; },
     },
     versionChecker: {
       async checkVersion() { return { current: '1.0.0', latest: '1.0.0', updateAvailable: false }; },
@@ -147,7 +147,7 @@ test('status shows running foreground when no log file exists', async () => {
   }
 });
 
-test('status shows Windows Service mode when SCM reports running', async () => {
+test('status shows auto-start mode when scheduled task is installed', async () => {
   const { statusCommand } = require('../dist/commands/status.js');
   const logs = [];
   const origLog = console.log;
@@ -165,16 +165,15 @@ test('status shows Windows Service mode when SCM reports running', async () => {
         getDefaultLogPath() { return path.join(os.tmpdir(), 'lattix.log'); },
         getPidPath() { return path.join(os.tmpdir(), 'lattix.pid'); },
       },
-      serviceManager: {
-        queryServiceState() { return 'running'; },
-        getServiceName() { return 'Lattix'; },
+      taskManager: {
+        queryTaskState() { return 'installed'; },
+        getTaskName() { return 'Lattix'; },
       },
     }));
 
     const output = logs.join('\n');
     assert.ok(output.includes('7777'), 'should show PID');
-    assert.ok(output.includes('Windows Service'), 'should show Windows Service mode');
-    assert.ok(output.includes('Lattix'), 'should show service name');
+    assert.ok(output.includes('auto-start'), 'should show auto-start mode');
   } finally {
     console.log = origLog;
     fs.rmSync(tasksDir, { recursive: true, force: true });

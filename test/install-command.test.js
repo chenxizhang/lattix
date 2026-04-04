@@ -3,102 +3,63 @@ const assert = require('node:assert/strict');
 
 function createMockDeps(overrides = {}) {
   return {
-    serviceManager: {
-      isAdmin() { return true; },
-      queryServiceState() { return 'not-installed'; },
-      copyPackage() {},
-      removePackageCopy() {},
-      async install() {},
-      async uninstall() {},
-      startService() {},
-      stopService() {},
-      getServiceName() { return 'Lattix'; },
-      getAppDir() { return 'C:\\fake\\.lattix\\app'; },
+    taskManager: {
+      queryTaskState() { return 'not-installed'; },
+      install() {},
+      getTaskName() { return 'Lattix'; },
     },
     daemonService: {
-      checkExistingDaemon() { return null; },
-      getDefaultLogPath() { return 'C:\\fake\\.lattix\\lattix.log'; },
+      readPid() { return null; },
+      isRunning() { return false; },
     },
     exit: (code) => { throw new Error(`exit ${code}`); },
+    runDaemon: () => {},
     ...overrides,
   };
 }
 
-test('install command copies package and registers service', async () => {
+test('install command creates scheduled task and starts daemon', () => {
   const { installCommand } = require('../dist/commands/install.js');
-  let copied = false;
   let installed = false;
+  let daemonStarted = false;
 
-  const deps = createMockDeps({
-    serviceManager: {
-      ...createMockDeps().serviceManager,
-      copyPackage() { copied = true; },
-      async install() { installed = true; },
+  installCommand(undefined, undefined, createMockDeps({
+    taskManager: {
+      ...createMockDeps().taskManager,
+      install() { installed = true; },
     },
-  });
+    runDaemon: () => { daemonStarted = true; },
+  }));
 
-  await installCommand({ pollInterval: '30', concurrency: '2' }, undefined, deps);
-  assert.ok(copied, 'should copy package');
-  assert.ok(installed, 'should install service');
+  assert.ok(installed, 'should create scheduled task');
+  assert.ok(daemonStarted, 'should start daemon');
 });
 
-test('install command blocks when not admin', async () => {
+test('install command reports when task already exists', () => {
+  const { installCommand } = require('../dist/commands/install.js');
+
+  // Should not throw
+  installCommand(undefined, undefined, createMockDeps({
+    taskManager: {
+      queryTaskState() { return 'installed'; },
+      getTaskName() { return 'Lattix'; },
+    },
+  }));
+});
+
+test('install command exits with 1 on failure', () => {
   const { installCommand } = require('../dist/commands/install.js');
   let exitCode = null;
 
-  const deps = createMockDeps({
-    serviceManager: {
-      ...createMockDeps().serviceManager,
-      isAdmin() { return false; },
-    },
-    exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
-  });
+  try {
+    installCommand(undefined, undefined, createMockDeps({
+      taskManager: {
+        ...createMockDeps().taskManager,
+        install() { throw new Error('schtasks failed'); },
+      },
+      exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
+    }));
+  } catch { /* expected */ }
 
-  try { await installCommand({}, undefined, deps); } catch { /* expected */ }
   assert.equal(exitCode, 1);
-});
-
-test('install command blocks when non-service instance is running', async () => {
-  const { installCommand } = require('../dist/commands/install.js');
-  let exitCode = null;
-
-  const deps = createMockDeps({
-    daemonService: {
-      checkExistingDaemon() { return 12345; },
-      getDefaultLogPath() { return 'C:\\fake\\log'; },
-    },
-    exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
-  });
-
-  try { await installCommand({}, undefined, deps); } catch { /* expected */ }
-  assert.equal(exitCode, 1);
-});
-
-test('install command upgrades when service already registered', async () => {
-  const { installCommand } = require('../dist/commands/install.js');
-  let stopped = false;
-  let uninstalled = false;
-  let copied = false;
-  let installed = false;
-
-  const deps = createMockDeps({
-    serviceManager: {
-      ...createMockDeps().serviceManager,
-      queryServiceState() { return 'running'; },
-      stopService() { stopped = true; },
-      async uninstall() { uninstalled = true; },
-      copyPackage() { copied = true; },
-      async install() { installed = true; },
-    },
-    daemonService: {
-      checkExistingDaemon() { return 999; },
-      getDefaultLogPath() { return 'C:\\fake\\log'; },
-    },
-  });
-
-  await installCommand({}, undefined, deps);
-  assert.ok(stopped, 'should stop existing service');
-  assert.ok(uninstalled, 'should uninstall existing service');
-  assert.ok(copied, 'should copy new package');
-  assert.ok(installed, 'should install new service');
 });
