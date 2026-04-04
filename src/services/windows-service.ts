@@ -87,14 +87,25 @@ export class WindowsServiceManager {
   }
 
   async install(args: string[], logFile: string): Promise<void> {
-    const scriptPath = path.join(this.appDir, 'dist', 'cli.js');
+    // Create a launcher script to bypass node-windows' broken scriptOptions parsing
+    // (node-windows converts array to comma-separated, but wrapper splits by space)
+    const launcherPath = path.join(this.appDir, 'service-launcher.js');
+    const cliPath = path.join(this.appDir, 'dist', 'cli.js').replace(/\\/g, '\\\\');
+    const logFilePath = logFile.replace(/\\/g, '\\\\');
+    const childArgs = ['run', '--_daemon-child', '--log-file', logFilePath, ...args];
+    const launcherContent = [
+      `// Auto-generated service launcher — do not edit`,
+      `process.argv = [process.execPath, __filename, ${childArgs.map(a => JSON.stringify(a)).join(', ')}];`,
+      `require("${cliPath}");`,
+    ].join('\n');
+    fs.writeFileSync(launcherPath, launcherContent, 'utf-8');
+
     const ServiceClass = this.deps.ServiceClass ?? this._loadServiceClass();
 
     const svc = new ServiceClass({
       name: SERVICE_NAME,
       description: 'Lattix agent orchestration service',
-      script: scriptPath,
-      scriptOptions: ['run', '--_daemon-child', '--log-file', logFile, ...args],
+      script: launcherPath,
       nodeOptions: [],
       grow: 0.5,
       wait: 2,
@@ -119,7 +130,8 @@ export class WindowsServiceManager {
   }
 
   async uninstall(): Promise<void> {
-    const scriptPath = path.join(this.appDir, 'dist', 'cli.js');
+    const launcherPath = path.join(this.appDir, 'service-launcher.js');
+    const scriptPath = fs.existsSync(launcherPath) ? launcherPath : path.join(this.appDir, 'dist', 'cli.js');
     const ServiceClass = this.deps.ServiceClass ?? this._loadServiceClass();
 
     const svc = new ServiceClass({

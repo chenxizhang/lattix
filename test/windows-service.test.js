@@ -95,7 +95,7 @@ test('removePackageCopy is safe when app dir does not exist', () => {
 
 // --- install tests ---
 
-test('install calls ServiceClass with correct config', async () => {
+test('install calls ServiceClass with launcher script', async () => {
   let capturedConfig = null;
   let installCb = null;
   let startCb = null;
@@ -111,18 +111,21 @@ test('install calls ServiceClass with correct config', async () => {
   }
 
   const { mgr, tmpDir } = createManager({ ServiceClass: MockService });
-  // Create app dir structure so scriptPath exists
+  // Create app dir structure
   const appDir = mgr.getAppDir();
   fs.mkdirSync(path.join(appDir, 'dist'), { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'dist', 'cli.js'), '');
 
   await mgr.install(['--poll-interval', '30'], '/tmp/lattix.log');
 
   assert.equal(capturedConfig.name, 'Lattix');
-  assert.ok(capturedConfig.script.includes('cli.js'));
-  assert.ok(capturedConfig.scriptOptions.includes('--poll-interval'));
-  assert.ok(capturedConfig.scriptOptions.includes('30'));
-  assert.ok(capturedConfig.scriptOptions.includes('--log-file'));
-  assert.ok(capturedConfig.scriptOptions.includes('--_daemon-child'));
+  assert.ok(capturedConfig.script.includes('service-launcher.js'), 'should use launcher script');
+  // Verify launcher was created
+  const launcherPath = path.join(appDir, 'service-launcher.js');
+  assert.ok(fs.existsSync(launcherPath), 'launcher script should exist');
+  const content = fs.readFileSync(launcherPath, 'utf-8');
+  assert.ok(content.includes('--_daemon-child'), 'launcher should include daemon-child flag');
+  assert.ok(content.includes('--poll-interval'), 'launcher should include poll-interval');
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
@@ -140,6 +143,8 @@ test('install rejects when service already installed', async () => {
   }
 
   const { mgr, tmpDir } = createManager({ ServiceClass: MockService });
+  // Create app dir for launcher script
+  fs.mkdirSync(mgr.getAppDir(), { recursive: true });
   await assert.rejects(() => mgr.install([], '/tmp/log'), /already installed/);
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
