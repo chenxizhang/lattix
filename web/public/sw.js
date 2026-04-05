@@ -3,6 +3,7 @@ const SHELL_FILES = [
   '/',
   '/manifest.json',
   '/config.js',
+  '/favicon.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
 ];

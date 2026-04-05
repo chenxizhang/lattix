@@ -20,24 +20,18 @@ export function renderNavbar(container: HTMLElement): HTMLElement {
           <span class="navbar-slogan">Distributed agent orchestration, without a control plane.</span>
         </div>
       </a>
-      <button class="navbar-toggle" id="nav-toggle" aria-label="Menu">☰</button>
     </div>
-    <div class="navbar-menu" id="nav-menu">
-      <a href="#/" class="navbar-link">Home</a>
-      <a href="#/tasks" class="navbar-link">Tasks</a>
-      <a href="#/settings" class="navbar-link">Settings</a>
-      <div class="navbar-user">
-        <button class="navbar-username-btn" id="user-info-btn" title="${email}">${displayName}</button>
-        <div class="navbar-user-dropdown" id="user-dropdown">
-          <div class="dropdown-info">
-            <div class="dropdown-name">${displayName}</div>
-            <div class="dropdown-email">${email}</div>
-            <div class="dropdown-type">${accountLabel}</div>
-          </div>
-          <div class="dropdown-actions">
-            <button class="btn btn-sm dropdown-action-btn" id="switch-account-btn">Switch Account</button>
-            <button class="btn btn-sm dropdown-action-btn" id="logout-btn">Logout</button>
-          </div>
+    <div class="navbar-actions">
+      <button class="navbar-username-btn" id="user-info-btn" title="${email}">${displayName}</button>
+      <div class="navbar-user-dropdown" id="user-dropdown">
+        <div class="dropdown-info">
+          <div class="dropdown-name">${displayName}</div>
+          <div class="dropdown-email">${email}</div>
+          <div class="dropdown-type">${accountLabel}</div>
+        </div>
+        <div class="dropdown-actions">
+          <button class="btn btn-sm dropdown-action-btn" id="switch-account-btn">Switch Account</button>
+          <button class="btn btn-sm dropdown-action-btn" id="logout-btn">Logout</button>
         </div>
       </div>
     </div>
@@ -45,9 +39,34 @@ export function renderNavbar(container: HTMLElement): HTMLElement {
 
   container.prepend(nav);
 
-  nav.querySelector('#nav-toggle')!.addEventListener('click', () => {
-    nav.querySelector('#nav-menu')!.classList.toggle('navbar-menu--open');
-  });
+  // Bottom tab bar for navigation (separate element for mobile positioning)
+  const tabBar = document.createElement('div');
+  tabBar.className = 'navbar-tabs';
+  tabBar.innerHTML = `
+    <a href="#/" class="tab-link" data-path="/">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="#/tasks" class="tab-link" data-path="/tasks">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+      <span>Tasks</span>
+    </a>
+    <a href="#/settings" class="tab-link" data-path="/settings">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Settings</span>
+    </a>
+  `;
+  container.appendChild(tabBar);
+
+  // Desktop nav links (hidden on mobile)
+  const desktopNav = document.createElement('div');
+  desktopNav.className = 'navbar-desktop-links';
+  desktopNav.innerHTML = `
+    <a href="#/" class="navbar-link">Home</a>
+    <a href="#/tasks" class="navbar-link">Tasks</a>
+    <a href="#/settings" class="navbar-link">Settings</a>
+  `;
+  nav.insertBefore(desktopNav, nav.querySelector('.navbar-actions'));
 
   // User dropdown toggle
   const userBtn = nav.querySelector('#user-info-btn')!;
@@ -68,12 +87,20 @@ export function renderNavbar(container: HTMLElement): HTMLElement {
     switchAccount().catch(console.error);
   });
 
-  // Highlight active link
+  // Highlight active link (desktop)
   const path = window.location.hash.slice(1) || '/';
-  nav.querySelectorAll('.navbar-link').forEach((link) => {
+  desktopNav.querySelectorAll('.navbar-link').forEach((link) => {
     const href = link.getAttribute('href')?.slice(1) || '/';
     if (path === href || (href !== '/' && path.startsWith(href))) {
       link.classList.add('navbar-link--active');
+    }
+  });
+
+  // Highlight active tab (mobile)
+  tabBar.querySelectorAll('.tab-link').forEach((tab) => {
+    const tabPath = tab.getAttribute('data-path') || '/';
+    if (path === tabPath || (tabPath !== '/' && path.startsWith(tabPath))) {
+      tab.classList.add('tab-link--active');
     }
   });
 
