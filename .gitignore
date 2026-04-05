@@ -4,3 +4,5 @@ dist/
 *.d.ts
 !src/**/*
 .agentbroker/
+web/node_modules/
+web/dist/
