@@ -10,6 +10,12 @@ const SCOPES = ['Files.Read', 'Files.ReadWrite', 'User.Read'];
 
 let msalInstance: PublicClientApplication | null = null;
 
+function isStandaloneMode(): boolean {
+  return (typeof window.matchMedia === 'function'
+      && window.matchMedia('(display-mode: standalone)').matches)
+    || (navigator as any).standalone === true;
+}
+
 function getConfig(): Configuration {
   const cfg = window.LATTIX_CONFIG;
   if (!cfg?.clientId) {
@@ -22,7 +28,7 @@ function getConfig(): Configuration {
       redirectUri: cfg.redirectUri || window.location.origin + '/',
     },
     cache: {
-      cacheLocation: 'sessionStorage',
+      cacheLocation: 'localStorage',
     },
   };
 }
@@ -45,6 +51,14 @@ export function isAuthenticated(): boolean {
 
 export async function login(): Promise<void> {
   if (!msalInstance) throw new Error('Auth not initialized');
+  if (isStandaloneMode()) {
+    try {
+      await msalInstance.loginPopup({ scopes: SCOPES });
+      return;
+    } catch {
+      // Popup blocked or failed — fall back to redirect
+    }
+  }
   await msalInstance.loginRedirect({ scopes: SCOPES });
 }
 
@@ -55,10 +69,16 @@ export async function logout(): Promise<void> {
 
 export async function switchAccount(): Promise<void> {
   if (!msalInstance) throw new Error('Auth not initialized');
-  await msalInstance.loginRedirect({
-    scopes: SCOPES,
-    prompt: 'select_account',
-  });
+  const request = { scopes: SCOPES, prompt: 'select_account' as const };
+  if (isStandaloneMode()) {
+    try {
+      await msalInstance.loginPopup(request);
+      return;
+    } catch {
+      // Popup blocked or failed — fall back to redirect
+    }
+  }
+  await msalInstance.loginRedirect(request);
 }
 
 export async function getToken(): Promise<string> {

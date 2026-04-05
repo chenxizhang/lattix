@@ -27,7 +27,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Network-first for API calls
-  if (url.hostname === 'graph.microsoft.com' || url.hostname === 'login.microsoftonline.com') {
+  if (url.hostname === 'graph.microsoft.com' || url.hostname === 'login.microsoftonline.com' || url.hostname === 'login.live.com') {
     return;
   }
 

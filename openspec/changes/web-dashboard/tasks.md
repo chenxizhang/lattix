@@ -5,11 +5,11 @@
 - [x] 1.3 Add required API permissions: Microsoft Graph — `Files.Read`, `Files.ReadWrite`, `User.Read` (delegated)
 - [x] 1.4 Admin-consent the permissions (if possible) or document that users must consent on first login
 - [x] 1.5 Capture the application (client) ID and write it to `web/public/config.js`
-- [ ] 1.6 Create CNAME DNS record manually in Cloudflare Dashboard: `lattix` CNAME → `chenxizhang.github.io` (proxied) in zone `code365.xyz`
+- [x] 1.6 Create CNAME DNS record manually in Cloudflare Dashboard: `lattix` CNAME → `chenxizhang.github.io` (proxied) in zone `code365.xyz`
 - [x] 1.7 Create `web/public/CNAME` file containing `lattix.code365.xyz` (included in every build artifact)
 - [x] 1.8 Create `.github/workflows/deploy-pages.yml` — GitHub Actions workflow: trigger on push to `main` (paths: `web/**`), build Vite app, deploy via `actions/upload-pages-artifact` + `actions/deploy-pages`
 - [x] 1.9 Enable GitHub Pages via `gh` CLI with Actions source: `gh api repos/chenxizhang/lattix/pages -X POST -f build_type=workflow`, then set custom domain: `gh api repos/chenxizhang/lattix/pages -X PUT -f cname=lattix.code365.xyz`
-- [ ] 1.10 Verify `https://lattix.code365.xyz/` resolves and serves content after first workflow run
+- [x] 1.10 Verify `https://lattix.code365.xyz/` resolves and serves content after first workflow run
 
 ## 2. Project Scaffolding
 
@@ -86,7 +86,7 @@
 - [x] 8.3 Create `web/public/sw.js` — service worker with install (cache app shell), activate (clean old caches), fetch (cache-first for static assets, network-first for API calls)
 - [x] 8.4 Add service worker registration in `index.html` — register on load, handle updates
 - [x] 8.5 Add Apple-specific meta tags in `index.html`: `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-touch-icon`
-- [ ] 8.6 Verify PWA install prompt appears in Chrome and Safari (manual)
+- [x] 8.6 Verify PWA install prompt appears in Chrome and Safari (manual)
 
 ## 9. Entry Point and Integration
 
