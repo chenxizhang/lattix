@@ -25,7 +25,7 @@
 ## 3. Authentication (MSAL.js)
 
 - [x] 3.1 Write tests for auth module: MSAL config initialization, login redirect trigger, token acquisition, logout, unauthenticated state detection, token expiry → silent refresh → login redirect fallback
-- [x] 3.2 Create `web/src/auth.ts` — initialize `PublicClientApplication` from `config.js` values with `cacheLocation: 'sessionStorage'`; export `login()`, `logout()`, `getToken(scopes)`, `getAccount()`, `isAuthenticated()`, `switchAccount()`
+- [x] 3.2 Create `web/src/auth.ts` — initialize `PublicClientApplication` from `config.js` values with `cacheLocation: 'localStorage'`; export `login()`, `logout()`, `getToken(scopes)`, `getAccount()`, `isAuthenticated()`, `switchAccount()`
 - [x] 3.3 Handle redirect promise on page load (`handleRedirectPromise()`) to complete the auth flow after redirect back from Entra ID
 - [x] 3.4 Request scopes: `Files.Read`, `Files.ReadWrite`, `User.Read`
 - [x] 3.5 Implement silent token refresh: call `acquireTokenSilent()` first, fall back to `acquireTokenRedirect()` on `InteractionRequiredAuthError`
@@ -56,7 +56,7 @@
 
 - [x] 6.1 Write tests for home view: renders node list when data exists, renders onboarding when empty, renders submit form
 - [x] 6.2 Create `web/src/components/home.ts` — home view with three sections:
-  - **Submit form** (top, prominent): title input (max 100 chars), prompt textarea (max 10,000 chars), submit button. No agent command or working directory fields exposed.
+  - **Submit form** (top, prominent): title input (max 100 chars), prompt textarea (max 10,000 chars), optional agent command (in collapsible Options section), submit button. Working directory field not exposed.
   - **Node list**: cards showing hostname, last active time, total tasks executed
   - **Recent tasks**: compact list of last 10 tasks with status badges, "View all" link to #/tasks
   - **Onboarding**: shown when no nodes/tasks found — installation instructions (`npx -y lattix run`), note about signing in with the correct Microsoft account
