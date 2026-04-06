@@ -337,18 +337,21 @@ describe('parallel task content fetching', () => {
         return Promise.resolve({
           ok: true, status: 200, headers: new Headers(),
           json: () => Promise.resolve({ id: 'task-1', prompt: 'do thing 1' }),
+          text: () => Promise.resolve(JSON.stringify({ id: 'task-1', prompt: 'do thing 1' })),
         });
       }
       if (url.includes('item-2')) {
         return Promise.resolve({
           ok: false, status: 403, headers: new Headers(),
           json: () => Promise.resolve({ error: { code: 'accessDenied' } }),
+          text: () => Promise.resolve(JSON.stringify({ error: { code: 'accessDenied' } })),
         });
       }
       if (url.includes('item-3')) {
         return Promise.resolve({
           ok: true, status: 200, headers: new Headers(),
           json: () => Promise.resolve({ id: 'task-3', prompt: 'do thing 3' }),
+          text: () => Promise.resolve(JSON.stringify({ id: 'task-3', prompt: 'do thing 3' })),
         });
       }
       return Promise.reject(new Error('unexpected URL'));

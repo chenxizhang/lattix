@@ -1,5 +1,5 @@
 import { renderNavbar } from './navbar';
-import { submitTask, listTaskFiles, readFileContent, discoverNodes, checkWorkspaceExists } from '../graph';
+import { submitTask, listTaskFiles, readFileContent, readFileByUrl, discoverNodes, checkWorkspaceExists } from '../graph';
 import { formatDate } from '../utils';
 import { showToast } from '../utils';
 import { getCache, setCache, getSetting } from '../cache';
@@ -176,11 +176,14 @@ export async function renderHome(container: HTMLElement): Promise<void> {
       discoverNodes(),
     ]);
 
-    // Read task contents in parallel
+    // Read task contents in parallel — prefer downloadUrl (avoids 302 redirect issues on mobile)
     const itemsToRead = taskResult.items.slice(0, 10);
     const settled = await Promise.allSettled(
       itemsToRead.map(async (item) => {
-        const task = await readFileContent<TaskFile>(item.id);
+        const downloadUrl = item['@microsoft.graph.downloadUrl'];
+        const task = downloadUrl
+          ? await readFileByUrl<TaskFile>(downloadUrl)
+          : await readFileContent<TaskFile>(item.id);
         return { task, lastModified: item.lastModifiedDateTime } as CachedTask;
       }),
     );

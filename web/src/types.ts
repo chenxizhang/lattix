@@ -37,6 +37,7 @@ export interface DriveItem {
   lastModifiedDateTime: string;
   file?: { mimeType: string };
   folder?: { childCount: number };
+  '@microsoft.graph.downloadUrl'?: string;
 }
 
 export interface DriveItemsResponse {

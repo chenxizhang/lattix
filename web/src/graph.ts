@@ -89,7 +89,23 @@ export async function listTaskFiles(
 export async function readFileContent<T>(itemId: string): Promise<T> {
   const resp = await graphFetch(`${GRAPH_BASE}/me/drive/items/${itemId}/content`);
   if (!resp.ok) throw new GraphError('Failed to read file', resp.status);
-  return resp.json() as Promise<T>;
+  const text = await resp.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new GraphError('Invalid JSON in file', 0);
+  }
+}
+
+export async function readFileByUrl<T>(downloadUrl: string): Promise<T> {
+  const resp = await fetch(downloadUrl);
+  if (!resp.ok) throw new Error(`Download failed: ${resp.status}`);
+  const text = await resp.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error('Invalid JSON in downloaded file');
+  }
 }
 
 export async function listTaskResults(

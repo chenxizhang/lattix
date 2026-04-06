@@ -1,5 +1,5 @@
 import { renderNavbar } from './navbar';
-import { listTaskFiles, readFileContent, listTaskResults } from '../graph';
+import { listTaskFiles, readFileContent, readFileByUrl, listTaskResults } from '../graph';
 import { formatDate, formatDuration, hostnameFromResultFile } from '../utils';
 import type { TaskFile, ResultFile, DriveItem } from '../types';
 
@@ -21,7 +21,10 @@ export async function renderTaskDetail(
     const result = await listTaskFiles();
     for (const item of result.items) {
       if (item.name === `${taskId}.json`) {
-        task = await readFileContent<TaskFile>(item.id);
+        const downloadUrl = item['@microsoft.graph.downloadUrl'];
+        task = downloadUrl
+          ? await readFileByUrl<TaskFile>(downloadUrl)
+          : await readFileContent<TaskFile>(item.id);
         break;
       }
     }
@@ -46,7 +49,10 @@ export async function renderTaskDetail(
     const hostname = hostnameFromResultFile(item.name);
     if (hostname) {
       try {
-        const result = await readFileContent<ResultFile>(item.id);
+        const downloadUrl = item['@microsoft.graph.downloadUrl'];
+        const result = downloadUrl
+          ? await readFileByUrl<ResultFile>(downloadUrl)
+          : await readFileContent<ResultFile>(item.id);
         results.push({ hostname, result, driveItem: item });
       } catch {
         // skip unreadable

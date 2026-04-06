@@ -1,5 +1,5 @@
 import { renderNavbar } from './navbar';
-import { listTaskFiles, readFileContent } from '../graph';
+import { listTaskFiles, readFileContent, readFileByUrl } from '../graph';
 import { formatDate, showToast } from '../utils';
 import { getCache, setCache } from '../cache';
 import type { TaskFile, DriveItem } from '../types';
@@ -89,7 +89,10 @@ export async function renderTaskList(container: HTMLElement): Promise<void> {
 
     const settled = await Promise.allSettled(
       result.items.map(async (item) => {
-        const task = await readFileContent<TaskFile>(item.id);
+        const downloadUrl = item['@microsoft.graph.downloadUrl'];
+        const task = downloadUrl
+          ? await readFileByUrl<TaskFile>(downloadUrl)
+          : await readFileContent<TaskFile>(item.id);
         return { task, lastModified: item.lastModifiedDateTime } as CachedTaskItem;
       }),
     );
