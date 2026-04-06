@@ -7,7 +7,7 @@ export function renderLogin(container: HTMLElement): void {
     <div class="login-card">
       <img src="/icons/icon-192.png" alt="Lattix" class="login-logo" width="80" height="80" />
       <h1>Lattix</h1>
-      <p>Distributed agent orchestration dashboard</p>
+      <p>Distributed agent orchestration</p>
       <button class="btn btn-primary login-btn" id="login-btn">
         Sign in with Microsoft
       </button>

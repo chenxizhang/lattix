@@ -1,7 +1,8 @@
 import { renderNavbar } from './navbar';
-import { listTaskFiles, readFileContent, readFileByUrl, listTaskResults } from '../graph';
-import { formatDate, formatDuration, hostnameFromResultFile } from '../utils';
-import type { TaskFile, ResultFile, DriveItem } from '../types';
+import { listTaskFiles } from '../graph';
+import { formatDate, formatDuration } from '../utils';
+import { getTaskContent, getTaskResults } from '../task-cache';
+import type { TaskFile, ResultFile } from '../types';
 
 export async function renderTaskDetail(
   container: HTMLElement,
@@ -14,7 +15,7 @@ export async function renderTaskDetail(
   main.innerHTML = '<div class="loading">Loading task...</div>';
   container.appendChild(main);
 
-  // Find the task file by listing tasks and matching ID
+  // Find the task file — try cache first, then list and match by ID
   let task: TaskFile | null = null;
 
   try {
@@ -22,9 +23,7 @@ export async function renderTaskDetail(
     for (const item of result.items) {
       if (item.name === `${taskId}.json`) {
         const downloadUrl = item['@microsoft.graph.downloadUrl'];
-        task = downloadUrl
-          ? await readFileByUrl<TaskFile>(downloadUrl)
-          : await readFileContent<TaskFile>(item.id);
+        task = await getTaskContent(taskId, downloadUrl, item.id);
         break;
       }
     }
@@ -41,24 +40,8 @@ export async function renderTaskDetail(
     return;
   }
 
-  // Load results
-  const resultItems = await listTaskResults(taskId);
-  const results: { hostname: string; result: ResultFile; driveItem: DriveItem }[] = [];
-
-  for (const item of resultItems) {
-    const hostname = hostnameFromResultFile(item.name);
-    if (hostname) {
-      try {
-        const downloadUrl = item['@microsoft.graph.downloadUrl'];
-        const result = downloadUrl
-          ? await readFileByUrl<ResultFile>(downloadUrl)
-          : await readFileContent<ResultFile>(item.id);
-        results.push({ hostname, result, driveItem: item });
-      } catch {
-        // skip unreadable
-      }
-    }
-  }
+  // Load results (with caching)
+  const { results } = await getTaskResults(taskId);
 
   main.innerHTML = `
     <a href="#/tasks" class="btn btn-sm back-link">← Back</a>

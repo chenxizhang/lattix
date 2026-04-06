@@ -1,8 +1,8 @@
 import { renderNavbar } from './navbar';
-import { submitTask, listTaskFiles, readFileContent, readFileByUrl, discoverNodes, checkWorkspaceExists } from '../graph';
+import { submitTask, listTaskFiles, discoverNodes, checkWorkspaceExists } from '../graph';
 import { formatDate } from '../utils';
 import { showToast } from '../utils';
-import { getCache, setCache, getSetting } from '../cache';
+import { getCache, setCache, getSetting, getTaskContent } from '../task-cache';
 import type { TaskFile, LattixNode } from '../types';
 
 interface CachedTask {
@@ -176,14 +176,13 @@ export async function renderHome(container: HTMLElement): Promise<void> {
       discoverNodes(),
     ]);
 
-    // Read task contents in parallel — prefer downloadUrl (avoids 302 redirect issues on mobile)
+    // Read task contents in parallel — use per-task cache to skip API calls for known tasks
     const itemsToRead = taskResult.items.slice(0, 10);
     const settled = await Promise.allSettled(
       itemsToRead.map(async (item) => {
+        const taskId = item.name.replace(/\.json$/, '');
         const downloadUrl = item['@microsoft.graph.downloadUrl'];
-        const task = downloadUrl
-          ? await readFileByUrl<TaskFile>(downloadUrl)
-          : await readFileContent<TaskFile>(item.id);
+        const task = await getTaskContent(taskId, downloadUrl, item.id);
         return { task, lastModified: item.lastModifiedDateTime } as CachedTask;
       }),
     );

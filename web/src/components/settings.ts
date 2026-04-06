@@ -23,6 +23,7 @@ export function renderSettings(container: HTMLElement): void {
     <section class="settings-section">
       <h3>About</h3>
       <p class="settings-desc">Lattix Web Dashboard connects to your OneDrive via Microsoft Graph API to manage tasks and monitor nodes controlled by the Lattix CLI.</p>
+      <p class="settings-desc"><strong>Secure by design:</strong> Lattix requires no tunnels, no exposed ports, and moves no data. All coordination happens through your existing OneDrive sync — nothing additional to audit, secure, or maintain.</p>
       <p>
         <a href="https://github.com/chenxizhang/lattix" target="_blank" rel="noopener">GitHub Repository</a> ·
         <a href="https://www.npmjs.com/package/lattix" target="_blank" rel="noopener">npm Package</a>

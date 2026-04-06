@@ -167,6 +167,17 @@ lattix status task-20260402120000-abc123
         └── ...
 ```
 
+## Security & Compliance
+
+Lattix is designed with a zero-infrastructure security model:
+
+- **No tunnels** — Machines never open inbound connections or tunnels. There is nothing to attack from the outside.
+- **No exposed ports** — No listening services, no open ports, no attack surface. Each machine only syncs files through OneDrive's existing, authenticated channel.
+- **No data movement** — Lattix does not transfer, copy, or relay any data. Task files and results live in the user's own OneDrive (Business or Personal). Data never leaves the Microsoft 365 tenant boundary.
+- **No central server** — There is no Lattix backend, broker, or control plane. Coordination happens entirely through OneDrive sync, which is already approved and managed by your organization's IT policies.
+
+This architecture means Lattix inherits the security, compliance, and data residency guarantees of your existing OneDrive and Microsoft 365 environment — with nothing additional to audit, secure, or maintain.
+
 ## Task File Format
 
 ```json
