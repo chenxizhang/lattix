@@ -70,7 +70,7 @@ export async function listTaskFiles(
 ): Promise<{ items: DriveItem[]; nextLink?: string }> {
   const url =
     nextLink ||
-    `${GRAPH_BASE}/me/drive/root:/Lattix/tasks:/children?$top=20&$orderby=lastModifiedDateTime desc`;
+    `${GRAPH_BASE}/me/drive/root:/Lattix/tasks:/children?$top=20&$orderby=lastModifiedDateTime%20desc&$select=id,name,lastModifiedDateTime,file,folder,@microsoft.graph.downloadUrl`;
 
   try {
     const resp = await graphFetch(url);
@@ -113,7 +113,7 @@ export async function listTaskResults(
 ): Promise<DriveItem[]> {
   try {
     const resp = await graphFetch(
-      `${GRAPH_BASE}/me/drive/root:/Lattix/output/${taskId}:/children`,
+      `${GRAPH_BASE}/me/drive/root:/Lattix/output/${taskId}:/children?$select=id,name,lastModifiedDateTime,file,@microsoft.graph.downloadUrl`,
     );
     if (resp.status === 404) return [];
     if (!resp.ok) throw new GraphError('Failed to list results', resp.status);
