@@ -77,11 +77,14 @@ export async function renderTaskList(container: HTMLElement): Promise<void> {
   main.className = 'main-content';
   container.appendChild(main);
 
-  // Show cached data immediately
   const cached = getCache<CachedTaskItem[]>('task_list');
-  if (cached && cached.length > 0) {
+  const hasCachedData = cached && cached.length > 0;
+
+  if (hasCachedData) {
+    // Stale-while-revalidate: render cached data immediately, no skeleton
     renderList(main, cached, false);
   } else {
+    // First visit: show skeleton
     main.innerHTML = `<h2>${t('taskList.title')}</h2><div class="skeleton-block"></div><div class="skeleton-block"></div>`;
   }
 
@@ -118,7 +121,11 @@ export async function renderTaskList(container: HTMLElement): Promise<void> {
     }
 
     setCache('task_list', allItems);
-    renderList(main, allItems, !!nextLink, () => loadPage(nextLink), loadFailed);
+
+    // Only re-render if data changed or this is the first fetch (no cache)
+    if (!hasCachedData || JSON.stringify(allItems) !== JSON.stringify(cached)) {
+      renderList(main, allItems, !!nextLink, () => loadPage(nextLink), loadFailed);
+    }
   }
 
   await loadPage();

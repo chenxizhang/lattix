@@ -1,5 +1,5 @@
-import { getCache, setCache, getSetting } from './cache';
-import { readFileByUrl, readFileContent, listTaskResults } from './graph';
+import { getCache, setCache, getSetting, getCacheWithTTL, setCacheWithTTL } from './cache';
+import { readFileByUrl, readFileContent, listTaskResults, checkWorkspaceExists } from './graph';
 import { hostnameFromResultFile } from './utils';
 import type { TaskFile, ResultFile } from './types';
 
@@ -94,4 +94,19 @@ async function refreshTaskResults(
     const merged = [...cached, ...newEntries];
     setCache(`results_${taskId}`, merged);
   }
+}
+
+const WORKSPACE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Check workspace existence with TTL caching.
+ * Returns cached result if within TTL, otherwise fetches fresh.
+ */
+export async function getCachedWorkspaceExists(): Promise<boolean> {
+  const cached = getCacheWithTTL<boolean>('workspace_exists');
+  if (cached !== null) return cached;
+
+  const exists = await checkWorkspaceExists();
+  setCacheWithTTL('workspace_exists', exists, WORKSPACE_TTL);
+  return exists;
 }

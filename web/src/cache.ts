@@ -21,6 +21,33 @@ export function setCache<T>(key: string, data: T): void {
   } catch { /* quota exceeded */ }
 }
 
+interface TTLEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+export function getCacheWithTTL<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(scopedPrefix() + 'cache_' + key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as TTLEntry<T>;
+    if (!entry.expiresAt || Date.now() > entry.expiresAt) {
+      localStorage.removeItem(scopedPrefix() + 'cache_' + key);
+      return null;
+    }
+    return entry.data;
+  } catch {
+    return null;
+  }
+}
+
+export function setCacheWithTTL<T>(key: string, data: T, ttlMs: number): void {
+  try {
+    const entry: TTLEntry<T> = { data, expiresAt: Date.now() + ttlMs };
+    localStorage.setItem(scopedPrefix() + 'cache_' + key, JSON.stringify(entry));
+  } catch { /* quota exceeded */ }
+}
+
 export function getSetting(key: string, defaultValue = ''): string {
   return localStorage.getItem(scopedPrefix() + 'pref_' + key) || defaultValue;
 }

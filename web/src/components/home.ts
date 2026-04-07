@@ -1,8 +1,8 @@
 import { renderNavbar } from './navbar';
-import { submitTask, listTaskFiles, discoverNodes, checkWorkspaceExists } from '../graph';
+import { submitTask, listTaskFiles, discoverNodes } from '../graph';
 import { showToast } from '../utils';
 import { t, formatDate, formatRelativeTime } from '../i18n';
-import { getCache, setCache, getSetting, getTaskContent } from '../task-cache';
+import { getCache, setCache, getSetting, getTaskContent, getCachedWorkspaceExists } from '../task-cache';
 import type { TaskFile, LattixNode } from '../types';
 
 interface CachedTask {
@@ -84,6 +84,30 @@ function renderRecentTasks(section: HTMLElement, tasks: CachedTask[], loading: b
   }
 }
 
+async function fetchFreshTasks(): Promise<CachedTask[]> {
+  const taskResult = await listTaskFiles();
+  const itemsToRead = taskResult.items.slice(0, 10);
+  const settled = await Promise.allSettled(
+    itemsToRead.map(async (item) => {
+      const taskId = item.name.replace(/\.json$/, '');
+      const downloadUrl = item['@microsoft.graph.downloadUrl'];
+      const task = await getTaskContent(taskId, downloadUrl, item.id);
+      return { task, lastModified: item.lastModifiedDateTime } as CachedTask;
+    }),
+  );
+
+  const tasks = settled
+    .filter((r): r is PromiseFulfilledResult<CachedTask> => r.status === 'fulfilled')
+    .map((r) => r.value);
+
+  const failedCount = settled.filter((r) => r.status === 'rejected').length;
+  if (failedCount > 0) {
+    console.warn(`Failed to read ${failedCount}/${itemsToRead.length} task files`);
+  }
+
+  return tasks;
+}
+
 export async function renderHome(container: HTMLElement): Promise<void> {
   renderNavbar(container);
 
@@ -136,75 +160,97 @@ export async function renderHome(container: HTMLElement): Promise<void> {
     }
   });
 
-  // 2. Nodes section — show cached data immediately
+  // 2. Nodes section
   const nodesSection = document.createElement('section');
   nodesSection.className = 'nodes-section';
   main.appendChild(nodesSection);
 
   const cachedNodes = getCache<LattixNode[]>('home_nodes');
-  renderNodes(nodesSection, cachedNodes || [], true);
 
-  // 3. Tasks section — show cached data immediately
+  // 3. Tasks section
   const tasksSection = document.createElement('section');
   tasksSection.className = 'tasks-section';
   main.appendChild(tasksSection);
 
   const cachedTasks = getCache<CachedTask[]>('home_tasks');
-  renderRecentTasks(tasksSection, cachedTasks || [], true);
 
-  // 4. Check workspace, then fetch fresh data
+  // Determine if we have cached data for stale-while-revalidate
+  const hasCachedData = (cachedNodes && cachedNodes.length > 0) || (cachedTasks && cachedTasks.length > 0);
+
+  if (hasCachedData) {
+    // Stale-while-revalidate: render cached data as final view (no loading state)
+    renderNodes(nodesSection, cachedNodes || [], false);
+    renderRecentTasks(tasksSection, cachedTasks || [], false);
+
+    // Background refresh — don't block the UI
+    backgroundRefresh(main, submitSection, nodesSection, tasksSection, cachedNodes, cachedTasks);
+  } else {
+    // First visit: show skeletons and fetch synchronously
+    renderNodes(nodesSection, [], true);
+    renderRecentTasks(tasksSection, [], true);
+    await syncFetch(main, submitSection, nodesSection, tasksSection);
+  }
+}
+
+async function backgroundRefresh(
+  main: HTMLElement,
+  submitSection: HTMLElement,
+  nodesSection: HTMLElement,
+  tasksSection: HTMLElement,
+  cachedNodes: LattixNode[] | null,
+  cachedTasks: CachedTask[] | null,
+): Promise<void> {
   try {
-    const workspaceExists = await checkWorkspaceExists();
+    const workspaceExists = await getCachedWorkspaceExists();
     if (!workspaceExists) {
-      nodesSection.innerHTML = '';
-      tasksSection.innerHTML = '';
-      main.innerHTML = '';
-      main.appendChild(submitSection);
-      const onboarding = document.createElement('section');
-      onboarding.className = 'onboarding';
-      onboarding.innerHTML = `
-        <h2>${t('home.welcomeTitle')}</h2>
-        <p>${t('home.welcomeText')}</p>
-        <pre class="code-block">${t('home.welcomeCommand')}</pre>
-        <p>${t('home.welcomeExplanation')}</p>
-        <p class="onboarding-hint">${t('home.welcomeHint')}</p>
-      `;
-      main.appendChild(onboarding);
+      // Workspace disappeared — show onboarding
+      showOnboarding(main, submitSection);
       return;
     }
 
-    // Fetch fresh data in parallel
-    const [taskResult, freshNodes] = await Promise.all([
-      listTaskFiles(),
+    const [freshTasks, freshNodes] = await Promise.all([
+      fetchFreshTasks(),
       discoverNodes(),
     ]);
 
-    // Read task contents in parallel — use per-task cache to skip API calls for known tasks
-    const itemsToRead = taskResult.items.slice(0, 10);
-    const settled = await Promise.allSettled(
-      itemsToRead.map(async (item) => {
-        const taskId = item.name.replace(/\.json$/, '');
-        const downloadUrl = item['@microsoft.graph.downloadUrl'];
-        const task = await getTaskContent(taskId, downloadUrl, item.id);
-        return { task, lastModified: item.lastModifiedDateTime } as CachedTask;
-      }),
-    );
-
-    const freshTasks = settled
-      .filter((r): r is PromiseFulfilledResult<CachedTask> => r.status === 'fulfilled')
-      .map((r) => r.value);
-
-    const failedCount = settled.filter((r) => r.status === 'rejected').length;
-    if (failedCount > 0) {
-      console.warn(`Failed to read ${failedCount}/${itemsToRead.length} task files`);
+    // Only re-render if data actually changed
+    if (JSON.stringify(freshNodes) !== JSON.stringify(cachedNodes)) {
+      setCache('home_nodes', freshNodes);
+      renderNodes(nodesSection, freshNodes, false);
     }
 
-    const loadFailed = freshTasks.length === 0 && itemsToRead.length > 0;
+    if (freshTasks.length > 0 && JSON.stringify(freshTasks) !== JSON.stringify(cachedTasks)) {
+      setCache('home_tasks', freshTasks);
+      renderRecentTasks(tasksSection, freshTasks, false);
+    }
+  } catch {
+    // Background refresh failure is non-fatal — cached data remains visible
+  }
+}
+
+async function syncFetch(
+  main: HTMLElement,
+  submitSection: HTMLElement,
+  nodesSection: HTMLElement,
+  tasksSection: HTMLElement,
+): Promise<void> {
+  try {
+    const workspaceExists = await getCachedWorkspaceExists();
+    if (!workspaceExists) {
+      showOnboarding(main, submitSection);
+      return;
+    }
+
+    const [freshTasks, freshNodes] = await Promise.all([
+      fetchFreshTasks(),
+      discoverNodes(),
+    ]);
+
+    const loadFailed = freshTasks.length === 0;
     if (loadFailed) {
       showToast(t('home.loadFailed'), 'error');
     }
 
-    // Update cache and re-render with fresh data
     setCache('home_nodes', freshNodes);
     if (freshTasks.length > 0) {
       setCache('home_tasks', freshTasks);
@@ -212,10 +258,22 @@ export async function renderHome(container: HTMLElement): Promise<void> {
 
     renderNodes(nodesSection, freshNodes, false);
     renderRecentTasks(tasksSection, freshTasks, false, loadFailed);
-  } catch (err) {
-    // If we have cached data, keep showing it
-    if (!cachedNodes && !cachedTasks) {
-      showToast(t('home.loadDataFailed'), 'error');
-    }
+  } catch {
+    showToast(t('home.loadDataFailed'), 'error');
   }
+}
+
+function showOnboarding(main: HTMLElement, submitSection: HTMLElement): void {
+  main.innerHTML = '';
+  main.appendChild(submitSection);
+  const onboarding = document.createElement('section');
+  onboarding.className = 'onboarding';
+  onboarding.innerHTML = `
+    <h2>${t('home.welcomeTitle')}</h2>
+    <p>${t('home.welcomeText')}</p>
+    <pre class="code-block">${t('home.welcomeCommand')}</pre>
+    <p>${t('home.welcomeExplanation')}</p>
+    <p class="onboarding-hint">${t('home.welcomeHint')}</p>
+  `;
+  main.appendChild(onboarding);
 }
