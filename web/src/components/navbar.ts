@@ -64,7 +64,7 @@ export function renderNavbar(container: HTMLElement): HTMLElement {
     <a href="#/" class="navbar-link">${t('navbar.home')}</a>
     <a href="#/tasks" class="navbar-link">${t('navbar.tasks')}</a>
     <a href="#/settings" class="navbar-link">${t('navbar.settings')}</a>
-    <a href="/donate.html" class="navbar-link navbar-link--donate" target="_blank" rel="noopener">&#9829; ${t('navbar.donate')}</a>
+    <a href="/donate.html" class="navbar-link navbar-link--donate" target="_blank" rel="noopener"><span class="heart-icon">&#9829;</span> ${t('navbar.donate')}</a>
   `;
   nav.insertBefore(desktopNav, nav.querySelector('.navbar-actions'));
 

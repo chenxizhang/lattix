@@ -94,6 +94,7 @@ body {
   color: var(--color-primary);
   background: rgba(0,120,212,0.08);
 }
+.heart-icon { color: #e74c3c; }
 
 /* Navbar user/actions area */
 .navbar-actions {

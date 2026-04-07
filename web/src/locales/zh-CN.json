@@ -86,5 +86,6 @@
   "settings.donate": "支持 Lattix",
 
   "app.authInitFailed": "认证初始化失败",
-  "app.unexpectedError": "发生意外错误"
+  "app.unexpectedError": "发生意外错误",
+  "app.updateAvailable": "有新版本可用 — 点击刷新"
 }

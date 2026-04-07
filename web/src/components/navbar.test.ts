@@ -124,4 +124,16 @@ describe('renderNavbar', () => {
     expect(tabTexts).toContain('Settings');
     expect(tabTexts).not.toContain('Donate');
   });
+
+  it('renders donate heart icon with .heart-icon class', () => {
+    const container = document.createElement('div');
+    renderNavbar(container);
+
+    const donateLink = container.querySelector('.navbar-link--donate');
+    expect(donateLink).not.toBeNull();
+
+    const heartIcon = donateLink!.querySelector('.heart-icon');
+    expect(heartIcon).not.toBeNull();
+    expect(heartIcon!.textContent).toBe('\u2665'); // ♥
+  });
 });

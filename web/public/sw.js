@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lattix-v1';
+const CACHE_NAME = 'lattix-__BUILD_HASH__';
 const SHELL_FILES = [
   '/',
   '/manifest.json',
@@ -27,12 +27,28 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Network-first for API calls
+  // Skip external API calls entirely
   if (url.hostname === 'graph.microsoft.com' || url.hostname === 'login.microsoftonline.com' || url.hostname === 'login.live.com') {
     return;
   }
 
-  // Cache-first for static assets
+  // Network-first for navigation requests (HTML) to ensure latest index.html
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets (JS, CSS, images — Vite uses content-hashed filenames)
   event.respondWith(
     caches.match(event.request).then((cached) => {
       return cached || fetch(event.request).then((response) => {
