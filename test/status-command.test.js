@@ -20,9 +20,8 @@ function createMockDeps(overrides = {}) {
       getDefaultLogPath() { return path.join(os.tmpdir(), 'lattix.log'); },
       getPidPath() { return path.join(os.tmpdir(), 'lattix.pid'); },
     },
-    taskManager: {
-      queryTaskState() { return 'not-installed'; },
-      getTaskName() { return 'Lattix'; },
+    autoStartManager: {
+      queryState() { return 'not-installed'; },
     },
     versionChecker: {
       async checkVersion() { return { current: '1.0.0', latest: '1.0.0', updateAvailable: false }; },
@@ -165,9 +164,8 @@ test('status shows auto-start mode when scheduled task is installed', async () =
         getDefaultLogPath() { return path.join(os.tmpdir(), 'lattix.log'); },
         getPidPath() { return path.join(os.tmpdir(), 'lattix.pid'); },
       },
-      taskManager: {
-        queryTaskState() { return 'installed'; },
-        getTaskName() { return 'Lattix'; },
+      autoStartManager: {
+        queryState() { return 'installed'; },
       },
     }));
 
@@ -198,9 +196,8 @@ test('status shows auto-start configured but not running', async () => {
         getDefaultLogPath() { return path.join(os.tmpdir(), 'lattix.log'); },
         getPidPath() { return path.join(os.tmpdir(), 'lattix.pid'); },
       },
-      taskManager: {
-        queryTaskState() { return 'installed'; },
-        getTaskName() { return 'Lattix'; },
+      autoStartManager: {
+        queryState() { return 'installed'; },
       },
     }));
 

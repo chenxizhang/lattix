@@ -48,14 +48,14 @@ The system SHALL provide a `stop` command that terminates the running Lattix ins
 - **THEN** the system SHALL terminate the running Lattix process and clean up the PID file
 
 ### Requirement: Install command
-The system SHALL provide an `install` command that creates a scheduled task for Lattix auto-start on login.
+The system SHALL provide an `install` command that configures Lattix auto-start on login using the platform-appropriate implementation on supported platforms.
 
 #### Scenario: Install command registered
 - **WHEN** the user runs `lattix --help`
 - **THEN** the help output SHALL list the `install` command with a description
 
 ### Requirement: Uninstall command
-The system SHALL provide an `uninstall` command that removes the Lattix scheduled task and stops the running instance.
+The system SHALL provide an `uninstall` command that removes the current platform's Lattix auto-start registration and stops the running instance.
 
 #### Scenario: Uninstall command registered
 - **WHEN** the user runs `lattix --help`

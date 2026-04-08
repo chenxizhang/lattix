@@ -15,7 +15,7 @@
 
   "cli.status_description": "Show status of all tasks or a specific task",
   "cli.stop_description": "Stop the running Lattix instance",
-  "cli.install_description": "Install Lattix auto-start on login (scheduled task)",
+  "cli.install_description": "Install Lattix auto-start on login",
   "cli.uninstall_description": "Remove Lattix auto-start and stop running instance",
 
   "cli.version_update_available": "Lattix v{current} (latest: v{latest}) ⚡ Update available",
@@ -24,7 +24,7 @@
 
   "run.scheduled_task_running": "Lattix is running (PID {pid}) with auto-start on login.",
   "run.scheduled_task_hint": "Use `lattix stop` to stop or `lattix uninstall` to remove auto-start.",
-  "run.scheduled_task_starting": "Lattix auto-start is configured. Starting via scheduled task...",
+  "run.scheduled_task_starting": "Lattix auto-start is configured. Starting through the configured auto-start registration...",
   "run.already_running": "Lattix is already running (PID {pid})",
   "run.daemon_started": "Lattix daemon started (PID {pid})",
   "run.daemon_log_file": "Log file: {path}",
@@ -94,23 +94,25 @@
   "stop.stopped": "Lattix stopped (PID {pid})",
   "stop.failed": "Failed to stop Lattix (PID {pid}): {message}",
 
-  "install.already_installed_running": "Lattix scheduled task is already installed and running.",
+  "install.already_installed_running": "Lattix auto-start is already installed and running.",
   "install.pid": "PID: {pid}",
   "install.already_running": "Lattix is already running (PID {pid}). Stop it first with `lattix stop`.",
-  "install.installed": "Lattix scheduled task installed",
-  "install.task_name": "Task name: {name}",
+  "install.installed": "Lattix auto-start installed",
+  "install.task_name": "Auto-start name: {name}",
   "install.auto_start_hint": "Lattix will auto-start on login via `npx lattix run -d`",
-  "install.already_installed": "Lattix scheduled task is already installed.",
+  "install.already_installed": "Lattix auto-start is already installed.",
   "install.starting": "Starting Lattix...",
   "install.started": "Lattix started (PID {pid})",
   "install.submit_hint": "To submit a task: {command} submit --prompt \"your instruction here\"",
-  "install.failed": "Failed to install/start scheduled task: {message}",
+  "install.failed": "Failed to install/start auto-start: {message}",
 
-  "uninstall.not_installed": "No Lattix scheduled task is installed.",
+  "uninstall.not_installed": "No Lattix auto-start is installed.",
   "uninstall.stopped": "Stopped running Lattix (PID {pid})",
-  "uninstall.removed": "Lattix scheduled task removed",
+  "uninstall.removed": "Lattix auto-start removed",
   "uninstall.no_auto_start": "Lattix will no longer auto-start on login.",
-  "uninstall.failed": "Failed to remove scheduled task: {message}",
+  "uninstall.failed": "Failed to remove auto-start: {message}",
+
+  "autostart.unsupported": "Auto-start is not supported on platform `{platform}`.",
 
   "bootstrap.no_onedrive": "No supported OneDrive account found.\nPlease install OneDrive and sign in with either your personal or business account.\nDownload: https://www.microsoft.com/en-us/microsoft-365/onedrive/download",
   "bootstrap.selected": "OneDrive selected: {name} ({type}) → {path}",

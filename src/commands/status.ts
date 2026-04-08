@@ -3,14 +3,14 @@ import * as path from 'path';
 import { TaskFile, ResultFile } from '../types';
 import { SetupService } from '../services/setup';
 import { DaemonService } from '../services/daemon';
-import { ScheduledTaskManager } from '../services/windows-service';
+import { AutoStartManager, createAutoStartManager } from '../services/auto-start';
 import { VersionChecker } from '../services/version-checker';
 import { bootstrap } from '../services/bootstrap';
 import { t, formatDate, formatRelativeTime } from '../services/i18n';
 
 interface StatusDependencies {
   daemonService?: DaemonService;
-  taskManager?: ScheduledTaskManager;
+  autoStartManager?: Pick<AutoStartManager, 'queryState'>;
   versionChecker?: VersionChecker;
   setup?: Pick<SetupService, 'loadConfig' | 'setup' | 'getTasksDir' | 'getOutputDir'>;
   bootstrapFn?: (deps: { setup: Pick<SetupService, 'loadConfig' | 'setup'> }) => Promise<unknown>;
@@ -19,7 +19,7 @@ interface StatusDependencies {
 export async function statusCommand(taskId?: string, _cmdObj?: unknown, dependencies: StatusDependencies = {}): Promise<void> {
   const setup = dependencies.setup ?? new SetupService();
   const daemonService = dependencies.daemonService ?? new DaemonService();
-  const taskManager = dependencies.taskManager ?? new ScheduledTaskManager();
+  const autoStartManager = dependencies.autoStartManager ?? createAutoStartManager();
   const versionChecker = dependencies.versionChecker ?? new VersionChecker();
 
   await (dependencies.bootstrapFn ?? bootstrap)({ setup });
@@ -31,7 +31,7 @@ export async function statusCommand(taskId?: string, _cmdObj?: unknown, dependen
   await showVersionInfo(versionChecker);
 
   // Show running process info
-  showProcessInfo(daemonService, taskManager);
+  showProcessInfo(daemonService, autoStartManager);
 
   if (taskId) {
     showTaskDetail(taskId, tasksDir, outputDir);
@@ -40,8 +40,11 @@ export async function statusCommand(taskId?: string, _cmdObj?: unknown, dependen
   }
 }
 
-function showProcessInfo(daemonService: DaemonService, taskManager: ScheduledTaskManager): void {
-  const taskState = taskManager.queryTaskState();
+function showProcessInfo(
+  daemonService: DaemonService,
+  autoStartManager: Pick<AutoStartManager, 'queryState'>
+): void {
+  const taskState = autoStartManager.queryState();
   const pid = daemonService.readPid();
   const autoStart = taskState === 'installed';
 

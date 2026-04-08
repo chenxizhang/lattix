@@ -3,11 +3,12 @@ const assert = require('node:assert/strict');
 
 function createMockDeps(overrides = {}) {
   return {
-    taskManager: {
-      queryTaskState() { return 'not-installed'; },
+    autoStartManager: {
+      isSupported() { return true; },
+      queryState() { return 'not-installed'; },
       install() {},
-      startTask() {},
-      getTaskName() { return 'Lattix'; },
+      start() {},
+      getName() { return 'Lattix'; },
     },
     daemonService: {
       readPid() { return null; },
@@ -26,10 +27,10 @@ test('install command creates scheduled task and starts it', () => {
   let taskStarted = false;
 
   installCommand(undefined, undefined, createMockDeps({
-    taskManager: {
-      ...createMockDeps().taskManager,
+    autoStartManager: {
+      ...createMockDeps().autoStartManager,
       install() { installed = true; },
-      startTask() { taskStarted = true; },
+      start() { taskStarted = true; },
     },
   }));
 
@@ -46,9 +47,9 @@ test('install command reports when already installed and running', () => {
       ...createMockDeps().daemonService,
       checkExistingDaemon() { return 12345; },
     },
-    taskManager: {
-      ...createMockDeps().taskManager,
-      queryTaskState() { return 'installed'; },
+    autoStartManager: {
+      ...createMockDeps().autoStartManager,
+      queryState() { return 'installed'; },
     },
   }));
 });
@@ -76,9 +77,26 @@ test('install command exits with 1 on failure', () => {
 
   try {
     installCommand(undefined, undefined, createMockDeps({
-      taskManager: {
-        ...createMockDeps().taskManager,
+      autoStartManager: {
+        ...createMockDeps().autoStartManager,
         install() { throw new Error('schtasks failed'); },
+      },
+      exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
+    }));
+  } catch { /* expected */ }
+
+  assert.equal(exitCode, 1);
+});
+
+test('install command exits with 1 on unsupported platforms', () => {
+  const { installCommand } = require('../dist/commands/install.js');
+  let exitCode = null;
+
+  try {
+    installCommand(undefined, undefined, createMockDeps({
+      autoStartManager: {
+        ...createMockDeps().autoStartManager,
+        isSupported() { return false; },
       },
       exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
     }));

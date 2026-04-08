@@ -15,7 +15,7 @@
 
   "cli.status_description": "显示所有任务或指定任务的状态",
   "cli.stop_description": "停止正在运行的 Lattix 实例",
-  "cli.install_description": "安装 Lattix 登录自启动（计划任务）",
+  "cli.install_description": "安装 Lattix 登录自启动",
   "cli.uninstall_description": "移除 Lattix 自启动并停止运行中的实例",
 
   "cli.version_update_available": "Lattix v{current}（最新: v{latest}）⚡ 有可用更新",
@@ -24,7 +24,7 @@
 
   "run.scheduled_task_running": "Lattix 正在运行（PID {pid}），已配置登录自启动。",
   "run.scheduled_task_hint": "使用 `lattix stop` 停止，或使用 `lattix uninstall` 移除自启动。",
-  "run.scheduled_task_starting": "Lattix 已配置自启动。正在通过计划任务启动...",
+  "run.scheduled_task_starting": "Lattix 已配置自启动。正在通过已配置的自启动项启动...",
   "run.already_running": "Lattix 已在运行（PID {pid}）",
   "run.daemon_started": "Lattix 守护进程已启动（PID {pid}）",
   "run.daemon_log_file": "日志文件: {path}",
@@ -94,23 +94,25 @@
   "stop.stopped": "Lattix 已停止（PID {pid}）",
   "stop.failed": "停止 Lattix 失败（PID {pid}）: {message}",
 
-  "install.already_installed_running": "Lattix 计划任务已安装且正在运行。",
+  "install.already_installed_running": "Lattix 自启动已安装且正在运行。",
   "install.pid": "PID: {pid}",
   "install.already_running": "Lattix 已在运行（PID {pid}）。请先使用 `lattix stop` 停止。",
-  "install.installed": "Lattix 计划任务已安装",
-  "install.task_name": "任务名称: {name}",
+  "install.installed": "Lattix 自启动已安装",
+  "install.task_name": "自启动名称: {name}",
   "install.auto_start_hint": "Lattix 将在登录时通过 `npx lattix run -d` 自动启动",
-  "install.already_installed": "Lattix 计划任务已安装。",
+  "install.already_installed": "Lattix 自启动已安装。",
   "install.starting": "正在启动 Lattix...",
   "install.started": "Lattix 已启动（PID {pid}）",
   "install.submit_hint": "提交任务: {command} submit --prompt \"你的指令\"",
-  "install.failed": "安装/启动计划任务失败: {message}",
+  "install.failed": "安装/启动自启动项失败: {message}",
 
-  "uninstall.not_installed": "未安装 Lattix 计划任务。",
+  "uninstall.not_installed": "未安装 Lattix 自启动项。",
   "uninstall.stopped": "已停止运行中的 Lattix（PID {pid}）",
-  "uninstall.removed": "Lattix 计划任务已移除",
+  "uninstall.removed": "Lattix 自启动项已移除",
   "uninstall.no_auto_start": "Lattix 将不再在登录时自动启动。",
-  "uninstall.failed": "移除计划任务失败: {message}",
+  "uninstall.failed": "移除自启动项失败: {message}",
+
+  "autostart.unsupported": "平台 `{platform}` 不支持自启动。",
 
   "bootstrap.no_onedrive": "未找到支持的 OneDrive 帐户。\n请安装 OneDrive 并使用个人或企业帐户登录。\n下载: https://www.microsoft.com/zh-cn/microsoft-365/onedrive/download",
   "bootstrap.selected": "已选择 OneDrive: {name}（{type}）→ {path}",

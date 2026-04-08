@@ -2,8 +2,15 @@ import * as path from 'path';
 import { DEFAULT_CONFIG, LattixConfig, OneDriveAccountType, OneDriveSelection, SyncProvider } from '../types';
 import { t } from './i18n';
 
+function getPathBasename(onedrivePath: string): string {
+  return onedrivePath.includes('\\')
+    ? path.win32.basename(onedrivePath)
+    : path.posix.basename(onedrivePath);
+}
+
 export function inferOneDriveAccountType(onedrivePath: string): OneDriveAccountType {
-  return path.basename(onedrivePath) === 'OneDrive' ? 'personal' : 'business';
+  const baseName = getPathBasename(onedrivePath);
+  return /^OneDrive([ -]?Personal)?$/i.test(baseName) ? 'personal' : 'business';
 }
 
 export function inferOneDriveAccountName(
@@ -14,8 +21,17 @@ export function inferOneDriveAccountName(
     return 'Personal';
   }
 
-  const baseName = path.basename(onedrivePath);
-  return baseName.startsWith('OneDrive - ') ? baseName.substring('OneDrive - '.length) : baseName;
+  const baseName = getPathBasename(onedrivePath);
+  if (baseName.startsWith('OneDrive - ')) {
+    return baseName.substring('OneDrive - '.length);
+  }
+  if (baseName.startsWith('OneDrive-')) {
+    return baseName.substring('OneDrive-'.length);
+  }
+  if (baseName.startsWith('OneDrive ')) {
+    return baseName.substring('OneDrive '.length);
+  }
+  return baseName;
 }
 
 export function inferOneDriveAccountKey(

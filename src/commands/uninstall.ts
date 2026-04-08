@@ -1,9 +1,9 @@
-import { ScheduledTaskManager } from '../services/windows-service';
+import { AutoStartManager, createAutoStartManager } from '../services/auto-start';
 import { DaemonService } from '../services/daemon';
 import { t } from '../services/i18n';
 
 interface UninstallDependencies {
-  taskManager?: ScheduledTaskManager;
+  autoStartManager?: AutoStartManager;
   daemonService?: DaemonService;
   exit?: (code: number) => never;
   killProcess?: (pid: number) => void;
@@ -14,12 +14,17 @@ export function uninstallCommand(
   _cmdObj?: unknown,
   dependencies: UninstallDependencies = {}
 ): void {
-  const taskManager = dependencies.taskManager ?? new ScheduledTaskManager();
+  const autoStartManager = dependencies.autoStartManager ?? createAutoStartManager();
   const daemonService = dependencies.daemonService ?? new DaemonService();
   const exit = dependencies.exit ?? ((code: number) => process.exit(code)) as (code: number) => never;
   const killProcess = dependencies.killProcess ?? ((pid: number) => process.kill(pid, 'SIGTERM'));
 
-  const taskState = taskManager.queryTaskState();
+  if (!autoStartManager.isSupported()) {
+    console.error(`❌ ${t('autostart.unsupported', { platform: process.platform })}`);
+    return exit(1);
+  }
+
+  const taskState = autoStartManager.queryState();
 
   if (taskState === 'not-installed') {
     console.log(`ℹ️ ${t('uninstall.not_installed')}`);
@@ -37,7 +42,7 @@ export function uninstallCommand(
   }
 
   try {
-    taskManager.uninstall();
+    autoStartManager.uninstall();
     console.log(`✅ ${t('uninstall.removed')}`);
     console.log(`   ${t('uninstall.no_auto_start')}`);
   } catch (err) {

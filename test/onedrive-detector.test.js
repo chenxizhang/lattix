@@ -2,21 +2,28 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 function createDetector({
+  platform = 'win32',
+  homeDir = 'C:\\Users\\Test',
   registryOutput = '',
   existsPaths = [],
   homeEntries = [],
+  extraEntries = {},
 } = {}) {
   const existing = new Set(existsPaths);
 
   const { OneDriveDetector } = require('../dist/services/onedrive-detector.js');
   return new OneDriveDetector({
-    platform: 'win32',
-    homedir: () => 'C:\\Users\\Test',
+    platform,
+    homedir: () => homeDir,
     execSyncImpl: () => registryOutput,
     existsSync: (filePath) => existing.has(filePath),
     readdirSyncImpl: (dirPath) => {
-      if (dirPath === 'C:\\Users\\Test') {
+      if (dirPath === homeDir) {
         return homeEntries;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(extraEntries, dirPath)) {
+        return extraEntries[dirPath];
       }
 
       return [];
@@ -85,4 +92,62 @@ test('OneDriveDetector returns no accounts when no supported OneDrive folders ex
   const accounts = detector.detectAccounts();
 
   assert.deepEqual(accounts, []);
+});
+
+test('OneDriveDetector finds a personal account from macOS CloudStorage', () => {
+  const homeDir = '/Users/Test';
+  const cloudStorageDir = '/Users/Test/Library/CloudStorage';
+  const detector = createDetector({
+    platform: 'darwin',
+    homeDir,
+    existsPaths: [`${cloudStorageDir}/OneDrive-Personal`],
+    extraEntries: {
+      [cloudStorageDir]: ['OneDrive-Personal'],
+    },
+  });
+
+  const accounts = detector.detectAccounts();
+
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].accountType, 'personal');
+  assert.equal(accounts[0].accountName, 'Personal');
+  assert.equal(accounts[0].path, `${cloudStorageDir}/OneDrive-Personal`);
+});
+
+test('OneDriveDetector returns both personal and business accounts on macOS', () => {
+  const homeDir = '/Users/Test';
+  const cloudStorageDir = '/Users/Test/Library/CloudStorage';
+  const detector = createDetector({
+    platform: 'darwin',
+    homeDir,
+    existsPaths: [
+      `${cloudStorageDir}/OneDrive-Personal`,
+      `${cloudStorageDir}/OneDrive-Contoso`,
+    ],
+    extraEntries: {
+      [cloudStorageDir]: ['OneDrive-Personal', 'OneDrive-Contoso'],
+    },
+  });
+
+  const accounts = detector.detectAccounts();
+
+  assert.deepEqual(
+    accounts.map((account) => account.accountType).sort(),
+    ['business', 'personal']
+  );
+});
+
+test('OneDriveDetector falls back to legacy macOS home-directory paths', () => {
+  const detector = createDetector({
+    platform: 'darwin',
+    homeDir: '/Users/Test',
+    existsPaths: ['/Users/Test/OneDrive'],
+    homeEntries: ['OneDrive'],
+  });
+
+  const accounts = detector.detectAccounts();
+
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].accountType, 'personal');
+  assert.equal(accounts[0].path, '/Users/Test/OneDrive');
 });

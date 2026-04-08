@@ -11,8 +11,10 @@ function createTempDir() {
 function createService(overrides = {}) {
   const { ShortcutService } = require('../dist/services/shortcut.js');
   const npmPrefix = overrides.npmPrefix || createTempDir();
+  const platform = overrides.platform || 'win32';
   return {
     service: new ShortcutService({
+      platform,
       scriptPath: overrides.scriptPath || '/some/path/_npx/123/node_modules/.bin/lattix',
       argv: overrides.argv || ['node', 'dist/cli.js', 'run'],
       execSyncFn: overrides.execSyncFn || ((cmd) => {
@@ -83,6 +85,17 @@ test('ShortcutService isGloballyInstalled returns false when where command fails
   assert.equal(service.isGloballyInstalled(), false);
 });
 
+test('ShortcutService isGloballyInstalled uses which -a on POSIX', () => {
+  const { service } = createService({
+    platform: 'darwin',
+    execSyncFn: (cmd) => {
+      if (cmd.startsWith('which -a')) return '/Users/test/.npm/_npx/abc/lattix\n/usr/local/bin/lattix\n';
+      return '';
+    },
+  });
+  assert.equal(service.isGloballyInstalled(), true);
+});
+
 // createWrapper tests
 test('ShortcutService createWrapper creates lattix.cmd in npm prefix dir', () => {
   const npmPrefix = createTempDir();
@@ -99,6 +112,28 @@ test('ShortcutService createWrapper creates lattix.cmd in npm prefix dir', () =>
   assert.ok(fs.existsSync(wrapperPath), 'wrapper file should exist in npm prefix');
   const content = fs.readFileSync(wrapperPath, 'utf-8');
   assert.ok(content.includes('@npx -y lattix %*'), 'wrapper should delegate to npx');
+
+  fs.rmSync(npmPrefix, { recursive: true, force: true });
+});
+
+test('ShortcutService createWrapper creates executable POSIX wrapper in npm prefix bin dir', () => {
+  const npmPrefix = createTempDir();
+  const { service } = createService({
+    platform: 'darwin',
+    execSyncFn: (cmd) => {
+      if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
+      return '';
+    },
+  });
+
+  service.createWrapper();
+
+  const wrapperPath = path.join(npmPrefix, 'bin', 'lattix');
+  assert.ok(fs.existsSync(wrapperPath), 'POSIX wrapper should exist in npm prefix bin');
+  const content = fs.readFileSync(wrapperPath, 'utf-8');
+  assert.ok(content.includes('npx -y lattix "$@"'), 'POSIX wrapper should delegate to npx');
+  const mode = fs.statSync(wrapperPath).mode & 0o777;
+  assert.equal(mode, 0o755);
 
   fs.rmSync(npmPrefix, { recursive: true, force: true });
 });
@@ -124,6 +159,22 @@ test('ShortcutService wrapperExists returns true after createWrapper', () => {
     },
   });
   service.createWrapper();
+  assert.equal(service.wrapperExists(), true);
+  fs.rmSync(npmPrefix, { recursive: true, force: true });
+});
+
+test('ShortcutService wrapperExists returns true for POSIX wrapper', () => {
+  const npmPrefix = createTempDir();
+  fs.mkdirSync(path.join(npmPrefix, 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(npmPrefix, 'bin', 'lattix'), '#!/bin/sh\nnpx -y lattix "$@"\n');
+
+  const { service } = createService({
+    platform: 'darwin',
+    execSyncFn: (cmd) => {
+      if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
+      return '';
+    },
+  });
   assert.equal(service.wrapperExists(), true);
   fs.rmSync(npmPrefix, { recursive: true, force: true });
 });
@@ -194,11 +245,31 @@ test('ShortcutService ensureShortcut creates wrapper in npm prefix and reports a
   fs.rmSync(npmPrefix, { recursive: true, force: true });
 });
 
+test('ShortcutService ensureShortcut creates POSIX wrapper in npm prefix bin and reports available', () => {
+  const npmPrefix = createTempDir();
+  const { service } = createService({
+    platform: 'darwin',
+    execSyncFn: (cmd) => {
+      if (cmd.startsWith('which -a')) throw new Error('not found');
+      if (cmd.includes('npm config get prefix')) return npmPrefix + '\n';
+      return '';
+    },
+  });
+  const result = service.ensureShortcut();
+  assert.equal(result.action, 'wrapper-created');
+  assert.equal(result.shortcutAvailable, true);
+
+  const wrapperPath = path.join(npmPrefix, 'bin', 'lattix');
+  assert.ok(fs.existsSync(wrapperPath), 'POSIX wrapper file should be created in npm prefix bin');
+
+  fs.rmSync(npmPrefix, { recursive: true, force: true });
+});
+
 test('ShortcutService ensureShortcut returns error action on failure', () => {
   const { service } = createService({
     execSyncFn: (cmd) => {
       if (cmd.startsWith('where')) throw new Error('not found');
-      if (cmd.includes('npm config get prefix')) return 'Z:\\nonexistent\\path\n';
+      if (cmd.includes('npm config get prefix')) return '/dev/null/notadir\n';
       return '';
     },
   });

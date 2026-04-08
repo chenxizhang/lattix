@@ -178,6 +178,12 @@ export class SetupService {
   }
 
   private removePathEntry(targetPath: string): void {
+    const stats = fs.lstatSync(targetPath);
+    if (stats.isSymbolicLink()) {
+      fs.unlinkSync(targetPath);
+      return;
+    }
+
     fs.rmSync(targetPath, { recursive: true, force: true });
   }
 

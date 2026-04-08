@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
+import type { AutoStartManager, AutoStartState } from './auto-start';
 
 export interface ScheduledTaskDependencies {
   homedir?: string;
@@ -12,7 +13,7 @@ export type TaskState = 'installed' | 'not-installed';
 
 const TASK_NAME = 'Lattix';
 
-export class ScheduledTaskManager {
+export class ScheduledTaskManager implements AutoStartManager {
   private readonly lattixDir: string;
   private readonly deps: ScheduledTaskDependencies;
 
@@ -24,6 +25,10 @@ export class ScheduledTaskManager {
 
   getTaskName(): string {
     return TASK_NAME;
+  }
+
+  isSupported(): boolean {
+    return true;
   }
 
   private exec(cmd: string): string {
@@ -38,6 +43,10 @@ export class ScheduledTaskManager {
     } catch {
       return 'not-installed';
     }
+  }
+
+  queryState(): AutoStartState {
+    return this.queryTaskState();
   }
 
   install(): void {
@@ -74,6 +83,14 @@ export class ScheduledTaskManager {
 
   startTask(): void {
     this.exec(`powershell -NoProfile -Command "Start-ScheduledTask -TaskName '${TASK_NAME}'"`);
+  }
+
+  start(): void {
+    this.startTask();
+  }
+
+  getName(): string {
+    return this.getTaskName();
   }
 
   private findNpx(): string {

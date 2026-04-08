@@ -61,8 +61,9 @@ function createMockDeps(overrides = {}) {
       getPidPath() { return 'C:\\temp\\lattix.pid'; },
       getDefaultLogPath() { return 'C:\\temp\\lattix.log'; },
     },
-    taskManager: overrides.taskManager || {
-      queryTaskState() { return 'not-installed'; },
+    autoStartManager: overrides.autoStartManager || {
+      queryState() { return 'not-installed'; },
+      start() {},
     },
     getShortcutResult: overrides.getShortcutResult || (() => undefined),
   };
@@ -268,9 +269,9 @@ test('run command starts via scheduled task when task installed but not running'
   let taskStarted = false;
 
   const deps = createMockDeps({
-    taskManager: {
-      queryTaskState() { return 'installed'; },
-      startTask() { taskStarted = true; },
+    autoStartManager: {
+      queryState() { return 'installed'; },
+      start() { taskStarted = true; },
     },
     exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
   });
@@ -286,8 +287,9 @@ test('run command shows info when scheduled task is installed and running', asyn
   let exitCode = null;
 
   const deps = createMockDeps({
-    taskManager: {
-      queryTaskState() { return 'installed'; },
+    autoStartManager: {
+      queryState() { return 'installed'; },
+      start() {},
     },
     daemonService: {
       checkExistingDaemon() { return 12345; },

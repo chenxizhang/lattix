@@ -1,10 +1,10 @@
-import { ScheduledTaskManager } from '../services/windows-service';
+import { AutoStartManager, createAutoStartManager } from '../services/auto-start';
 import { DaemonService } from '../services/daemon';
 import { ShortcutResult } from '../services/shortcut';
 import { t } from '../services/i18n';
 
 interface InstallDependencies {
-  taskManager?: ScheduledTaskManager;
+  autoStartManager?: AutoStartManager;
   daemonService?: DaemonService;
   exit?: (code: number) => never;
   getShortcutResult?: () => ShortcutResult | undefined;
@@ -15,14 +15,19 @@ export function installCommand(
   _cmdObj?: unknown,
   dependencies: InstallDependencies = {}
 ): void {
-  const taskManager = dependencies.taskManager ?? new ScheduledTaskManager();
+  const autoStartManager = dependencies.autoStartManager ?? createAutoStartManager();
   const daemonService = dependencies.daemonService ?? new DaemonService();
   const exit = dependencies.exit ?? ((code: number) => process.exit(code)) as (code: number) => never;
+
+  if (!autoStartManager.isSupported()) {
+    console.error(`❌ ${t('autostart.unsupported', { platform: process.platform })}`);
+    return exit(1);
+  }
 
   // Check for running instance (any mode)
   const existingPid = daemonService.checkExistingDaemon();
   if (existingPid !== null) {
-    const taskState = taskManager.queryTaskState();
+    const taskState = autoStartManager.queryState();
     if (taskState === 'installed') {
       console.log(`ℹ️ ${t('install.already_installed_running')}`);
       console.log(`   ${t('install.pid', { pid: existingPid })}`);
@@ -33,13 +38,13 @@ export function installCommand(
     return;
   }
 
-  const taskState = taskManager.queryTaskState();
+  const taskState = autoStartManager.queryState();
 
   try {
     if (taskState !== 'installed') {
-      taskManager.install();
+      autoStartManager.install();
       console.log(`✅ ${t('install.installed')}`);
-      console.log(`   ${t('install.task_name', { name: taskManager.getTaskName() })}`);
+      console.log(`   ${t('install.task_name', { name: autoStartManager.getName() })}`);
       console.log(`   ${t('install.auto_start_hint')}`);
     } else {
       console.log(`ℹ️ ${t('install.already_installed')}`);
@@ -47,7 +52,7 @@ export function installCommand(
 
     // Start the task immediately
     console.log(`🚀 ${t('install.starting')}`);
-    taskManager.startTask();
+    autoStartManager.start();
     // Wait a moment for the daemon to write its PID
     setTimeout(() => {
       const pid = daemonService.readPid();

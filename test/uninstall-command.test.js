@@ -3,8 +3,9 @@ const assert = require('node:assert/strict');
 
 function createMockDeps(overrides = {}) {
   return {
-    taskManager: {
-      queryTaskState() { return 'installed'; },
+    autoStartManager: {
+      isSupported() { return true; },
+      queryState() { return 'installed'; },
       uninstall() {},
     },
     daemonService: {
@@ -24,8 +25,9 @@ test('uninstall command removes scheduled task and stops process', () => {
   let killed = false;
 
   uninstallCommand(undefined, undefined, createMockDeps({
-    taskManager: {
-      queryTaskState() { return 'installed'; },
+    autoStartManager: {
+      isSupported() { return true; },
+      queryState() { return 'installed'; },
       uninstall() { uninstalled = true; },
     },
     daemonService: {
@@ -45,7 +47,11 @@ test('uninstall command reports when no task installed', () => {
 
   // Should not throw
   uninstallCommand(undefined, undefined, createMockDeps({
-    taskManager: { queryTaskState() { return 'not-installed'; } },
+    autoStartManager: {
+      isSupported() { return true; },
+      queryState() { return 'not-installed'; },
+      uninstall() {},
+    },
   }));
 });
 
@@ -55,9 +61,28 @@ test('uninstall command exits with 1 on failure', () => {
 
   try {
     uninstallCommand(undefined, undefined, createMockDeps({
-      taskManager: {
-        queryTaskState() { return 'installed'; },
+      autoStartManager: {
+        isSupported() { return true; },
+        queryState() { return 'installed'; },
         uninstall() { throw new Error('failed'); },
+      },
+      exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
+    }));
+  } catch { /* expected */ }
+
+  assert.equal(exitCode, 1);
+});
+
+test('uninstall command exits with 1 on unsupported platforms', () => {
+  const { uninstallCommand } = require('../dist/commands/uninstall.js');
+  let exitCode = null;
+
+  try {
+    uninstallCommand(undefined, undefined, createMockDeps({
+      autoStartManager: {
+        isSupported() { return false; },
+        queryState() { return 'not-installed'; },
+        uninstall() {},
       },
       exit: (code) => { exitCode = code; throw new Error(`exit ${code}`); },
     }));

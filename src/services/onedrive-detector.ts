@@ -63,6 +63,7 @@ export class OneDriveDetector {
   detectAccounts(): OneDriveAccount[] {
     const accounts = [
       ...this.findFromRegistry(),
+      ...this.findFromMacCloudStorage(),
       ...this.findFromWellKnownPaths(),
     ];
     const dedupedAccounts = new Map<string, OneDriveAccount>();
@@ -119,38 +120,16 @@ export class OneDriveDetector {
     return accounts;
   }
 
-  private findFromWellKnownPaths(): OneDriveAccount[] {
-    const accounts: OneDriveAccount[] = [];
-    const homeDir = this.getHomedir();
-
-    try {
-      const homeDirEntries = this.readdirSyncImpl(homeDir);
-
-      for (const entry of homeDirEntries) {
-        const fullPath = path.join(homeDir, entry);
-        if (!this.statSyncImpl(fullPath).isDirectory()) {
-          continue;
-        }
-
-        if (entry.startsWith('OneDrive - ')) {
-          accounts.push(this.createAccount(fullPath, {
-            accountKey: entry.replace('OneDrive - ', ''),
-            accountName: entry.replace('OneDrive - ', ''),
-            accountType: 'business',
-          }));
-        } else if (entry === 'OneDrive') {
-          accounts.push(this.createAccount(fullPath, {
-            accountKey: 'Personal',
-            accountName: 'Personal',
-            accountType: 'personal',
-          }));
-        }
-      }
-    } catch {
+  private findFromMacCloudStorage(): OneDriveAccount[] {
+    if (this.platform !== 'darwin') {
       return [];
     }
 
-    return accounts;
+    return this.scanForOneDrive(this.joinPath(this.getHomedir(), 'Library', 'CloudStorage'));
+  }
+
+  private findFromWellKnownPaths(): OneDriveAccount[] {
+    return this.scanForOneDrive(this.getHomedir());
   }
 
   private createAccount(folderPath: string, overrides: Partial<OneDriveSelection> = {}): OneDriveAccount {
@@ -160,5 +139,34 @@ export class OneDriveDetector {
       ...account,
       isBusiness: account.accountType === 'business',
     };
+  }
+
+  private scanForOneDrive(baseDir: string): OneDriveAccount[] {
+    const accounts: OneDriveAccount[] = [];
+
+    try {
+      for (const entry of this.readdirSyncImpl(baseDir)) {
+        if (!entry.startsWith('OneDrive')) {
+          continue;
+        }
+
+        const fullPath = this.joinPath(baseDir, entry);
+        if (!this.statSyncImpl(fullPath).isDirectory()) {
+          continue;
+        }
+
+        accounts.push(this.createAccount(fullPath));
+      }
+    } catch {
+      return [];
+    }
+
+    return accounts;
+  }
+
+  private joinPath(...segments: string[]): string {
+    return this.platform === 'win32'
+      ? path.win32.join(...segments)
+      : path.posix.join(...segments);
   }
 }

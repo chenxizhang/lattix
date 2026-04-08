@@ -14,6 +14,7 @@ export interface ShortcutDependencies {
   execSyncFn?: (cmd: string) => string;
   scriptPath?: string;
   argv?: string[];
+  platform?: NodeJS.Platform;
 }
 
 export class ShortcutService {
@@ -21,6 +22,14 @@ export class ShortcutService {
 
   constructor(deps: ShortcutDependencies = {}) {
     this.deps = deps;
+  }
+
+  private getPlatform(): NodeJS.Platform {
+    return this.deps.platform ?? process.platform;
+  }
+
+  private isWindows(): boolean {
+    return this.getPlatform() === 'win32';
   }
 
   private exec(cmd: string): string {
@@ -36,7 +45,8 @@ export class ShortcutService {
    * Get the npm global bin directory (already in PATH from Node.js install).
    */
   private getNpmGlobalBin(): string {
-    return this.exec('npm config get prefix').trim();
+    const prefix = this.exec('npm config get prefix').trim();
+    return this.isWindows() ? prefix : path.join(prefix, 'bin');
   }
 
   /**
@@ -52,7 +62,8 @@ export class ShortcutService {
    */
   isGloballyInstalled(): boolean {
     try {
-      const result = this.exec('where lattix').trim();
+      const lookupCommand = this.isWindows() ? 'where lattix' : 'which -a lattix';
+      const result = this.exec(lookupCommand).trim();
       const paths = result.split(/\r?\n/).map(p => p.trim()).filter(Boolean);
       // Exclude npx cache paths
       const globalPaths = paths.filter(p => !p.includes('_npx') && !p.includes('npm-cache'));
@@ -68,7 +79,7 @@ export class ShortcutService {
   wrapperExists(): boolean {
     try {
       const binDir = this.getNpmGlobalBin();
-      return fs.existsSync(path.join(binDir, 'lattix.cmd'));
+      return fs.existsSync(path.join(binDir, this.isWindows() ? 'lattix.cmd' : 'lattix'));
     } catch {
       return false;
     }
@@ -80,8 +91,17 @@ export class ShortcutService {
    */
   createWrapper(): void {
     const binDir = this.getNpmGlobalBin();
-    const wrapperPath = path.join(binDir, 'lattix.cmd');
-    fs.writeFileSync(wrapperPath, '@npx -y lattix %*\r\n', 'utf-8');
+    fs.mkdirSync(binDir, { recursive: true });
+
+    if (this.isWindows()) {
+      const wrapperPath = path.join(binDir, 'lattix.cmd');
+      fs.writeFileSync(wrapperPath, '@npx -y lattix %*\r\n', 'utf-8');
+      return;
+    }
+
+    const wrapperPath = path.join(binDir, 'lattix');
+    fs.writeFileSync(wrapperPath, '#!/bin/sh\nnpx -y lattix "$@"\n', 'utf-8');
+    fs.chmodSync(wrapperPath, 0o755);
   }
 
   /**

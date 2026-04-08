@@ -1,6 +1,6 @@
 {
   "name": "lattix",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Distributed agent orchestration, without a control plane.",
   "main": "dist/cli.js",
   "bin": {
@@ -11,9 +11,10 @@
     "build": "tsc && npm run copy-locales",
     "start": "node dist/cli.js",
     "dev": "tsc --watch",
-    "test": "npm run build && node --test",
+    "test": "npm run build && node --test test/*.test.js",
     "web:dev": "cd web && npm run dev",
-    "web:build": "cd web && npm run build"
+    "web:build": "cd web && npm run build",
+    "web:test": "cd web && npx vitest run"
   },
   "keywords": [
     "agent",

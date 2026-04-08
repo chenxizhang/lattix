@@ -3,7 +3,7 @@ import { TaskWatcher } from '../services/task-watcher';
 import { AgentExecutor } from '../services/agent-executor';
 import { ResultWriter } from '../services/result-writer';
 import { DaemonService } from '../services/daemon';
-import { ScheduledTaskManager } from '../services/windows-service';
+import { AutoStartManager, createAutoStartManager } from '../services/auto-start';
 import { Logger } from '../services/logger';
 import { LattixConfig } from '../types';
 import { bootstrap } from '../services/bootstrap';
@@ -32,7 +32,7 @@ interface RunDependencies {
   registerSignal?: (signal: NodeJS.Signals, handler: () => void) => void;
   exit?: (code: number) => never;
   daemonService?: DaemonService;
-  taskManager?: ScheduledTaskManager;
+  autoStartManager?: AutoStartManager;
   logger?: Logger;
   processArgv?: string[];
   getShortcutResult?: () => ShortcutResult | undefined;
@@ -41,11 +41,11 @@ interface RunDependencies {
 export async function runCommand(options: RunOptions, dependencies: RunDependencies = {}): Promise<void> {
   const exit = dependencies.exit ?? ((code: number) => process.exit(code));
   const daemonService = dependencies.daemonService ?? new DaemonService();
-  const taskManager = dependencies.taskManager ?? new ScheduledTaskManager();
+  const autoStartManager = dependencies.autoStartManager ?? createAutoStartManager();
 
-  // Skip scheduled task check when running as daemon child
+  // Skip auto-start check when running as daemon child
   if (!options._daemonChild) {
-    const taskState = taskManager.queryTaskState();
+    const taskState = autoStartManager.queryState();
     if (taskState === 'installed') {
       const existingPid = daemonService.checkExistingDaemon();
       if (existingPid !== null) {
@@ -54,9 +54,9 @@ export async function runCommand(options: RunOptions, dependencies: RunDependenc
         exit(0);
         return undefined as never;
       }
-      // Task installed but not running — start via scheduled task
+      // Auto-start installed but not running — start through the platform registration
       console.log(`ℹ️ ${t('run.scheduled_task_starting')}`);
-      taskManager.startTask();
+      autoStartManager.start();
       exit(0);
       return undefined as never;
     }

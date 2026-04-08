@@ -25,7 +25,7 @@ No servers, no databases, no control plane — just distributed coordination thr
 
 ## Prerequisites
 
-- **Windows** with PowerShell
+- **Windows** with PowerShell, or **macOS**
 - **Node.js** >= 18
 - **OneDrive** installed and syncing, with either a personal account, a business account, or both
 - A coding agent CLI (for example GitHub Copilot CLI or Claude Code)
@@ -74,7 +74,7 @@ This spawns a detached process, writes its PID to `~/.lattix/lattix.pid`, and re
 To use a custom log file:
 
 ```bash
-lattix run --daemon --log-file C:\logs\lattix.log
+lattix run --daemon --log-file /tmp/lattix.log
 ```
 
 > **Note:** Only one Lattix instance is allowed at a time, whether foreground, daemon, or auto-start.
@@ -87,7 +87,10 @@ For machines that need Lattix to run permanently, set up auto-start on login:
 npx -y lattix install
 ```
 
-This creates a scheduled task that runs `npx lattix run -d` on every login and when the computer wakes from sleep or hibernation (always using the latest version). The daemon starts immediately after installation. No administrator privileges required.
+This installs a platform-appropriate auto-start registration that runs `npx lattix run -d` using the latest published version. The daemon starts immediately after installation. No administrator privileges are required on supported platforms.
+
+- **Windows:** installs a Scheduled Task named `Lattix`, starts on login, and re-triggers after wake from sleep or hibernation.
+- **macOS:** installs a LaunchAgent named `xyz.code365.lattix`, starts on login, and starts the daemon immediately after installation.
 
 **Uninstall auto-start:**
 
@@ -95,7 +98,7 @@ This creates a scheduled task that runs `npx lattix run -d` on every login and w
 npx -y lattix uninstall
 ```
 
-This stops the running instance and removes the scheduled task.
+This stops the running instance and removes the current platform's auto-start registration.
 
 ### Stop
 
@@ -105,12 +108,13 @@ Stop the running Lattix instance:
 lattix stop
 ```
 
-This sends SIGTERM to the running process and cleans up the PID file. Works for all run modes (foreground, daemon, auto-start). If auto-start is configured, Lattix will restart on next login or wake from sleep.
+This sends SIGTERM to the running process and cleans up the PID file. Works for all run modes (foreground, daemon, auto-start). If auto-start is configured, Lattix will restart on the next login. On Windows, Scheduled Task mode also restarts after wake from sleep or hibernation.
 
 Lattix checks both OneDrive for Business and personal OneDrive accounts.
 
 - If exactly one supported account is available, Lattix uses it automatically.
 - If both personal and business OneDrive are available, Lattix picks the first one detected.
+- On macOS, detection checks `~/Library/CloudStorage/OneDrive*` first, then legacy `~/OneDrive*` paths.
 
 This creates `~/.lattix/` and points its `tasks/` and `output/` directories at your selected OneDrive workspace under `Lattix/`.
 
@@ -155,7 +159,6 @@ lattix status task-20260402120000-abc123
 ├── processed.json       # IDs of tasks already executed on this machine
 ├── lattix.pid           # PID file (present when running in any mode)
 ├── lattix.log           # Log file (daemon and auto-start modes)
-├── start-lattix.vbs     # Auto-start launcher (created by install)
 ├── tasks/ → OneDrive    # Symlink to the selected <OneDrive>\Lattix\tasks
 │   ├── task-001.json
 │   └── task-002.json
@@ -168,6 +171,10 @@ lattix status task-20260402120000-abc123
     └── task-002/
         └── ...
 ```
+
+Platform-specific auto-start files live outside `~/.lattix/`:
+- **Windows:** `~/.lattix/start-lattix.vbs`
+- **macOS:** `~/Library/LaunchAgents/xyz.code365.lattix.plist`
 
 ## Security & Compliance
 
@@ -209,7 +216,7 @@ Run the automated test suite:
 npm test
 ```
 
-The test suite covers task-watcher startup behavior, shortcut registration, scheduled task triggers, daemon management, run/install/stop/uninstall commands, CLI branding, bootstrap, OneDrive detection, provider selection, result writing, and legacy workspace migration.
+The test suite covers task-watcher startup behavior, shortcut registration, Windows scheduled-task and macOS LaunchAgent auto-start behavior, daemon management, run/install/stop/uninstall commands, CLI branding, bootstrap, OneDrive detection, provider selection, result writing, and legacy workspace migration.
 
 ## Web Dashboard
 
