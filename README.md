@@ -290,6 +290,17 @@ Lattix is free and open-source. If it helps your workflow, consider supporting t
   </tr>
 </table>
 
+### Supporters
+
+<p align="center">
+  <a href="https://github.com/hjunxu">
+    <img src="https://github.com/hjunxu.png?size=80" alt="@hjunxu" width="48" height="48" />
+  </a>
+</p>
+<p align="center">
+  <a href="https://github.com/hjunxu"><strong>@hjunxu</strong></a>
+</p>
+
 All supporters will be recognized on this page.
 
 ## License
