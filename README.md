@@ -292,14 +292,16 @@ Lattix is free and open-source. If it helps your workflow, consider supporting t
 
 ### Supporters
 
-<p>
-  <a href="https://github.com/hjunxu">
-    <img src="https://github.com/hjunxu.png?size=80" alt="@hjunxu" width="48" height="48" />
-  </a>
-</p>
-<p>
-  <a href="https://github.com/hjunxu"><strong>@hjunxu</strong></a>
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top" width="128">
+      <a href="https://github.com/hjunxu" title="@hjunxu">
+        <img src="https://github.com/hjunxu.png?size=96" alt="@hjunxu" width="64" height="64" /><br />
+        <sub><strong>hjunxu</strong></sub>
+      </a>
+    </td>
+  </tr>
+</table>
 
 All supporters will be recognized on this page.
 
