@@ -8,6 +8,12 @@
 
 > 分布式智能体编排，无需控制平面。
 
+> [!IMPORTANT]
+> Lattix 已迁移到 **AgentFleet**。
+> 新仓库：`https://github.com/daomar-dev/agentfleet`
+> 新包名：`@daomar/agentfleet`
+> 快速开始：`npx -y @daomar/agentfleet run`
+
 Lattix 是一个基于 OneDrive 同步构建的去中心化、多机器编码智能体编排工具。任何已注册的机器都可以分发工作，每台机器都可以执行任务。没有中央调度器、代理或控制平面需要维护。
 
 ## 概述

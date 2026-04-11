@@ -8,6 +8,12 @@
 
 > Distributed agent orchestration, without a control plane.
 
+> [!IMPORTANT]
+> Lattix has moved to **AgentFleet**.
+> New repository: `https://github.com/daomar-dev/agentfleet`
+> New package: `@daomar/agentfleet`
+> Quick start: `npx -y @daomar/agentfleet run`
+
 Lattix is a decentralized, multi-machine coding agent fabric built on top of OneDrive sync. Any enrolled machine can dispatch work. Every machine can execute it. There is no central scheduler, broker, or control plane to keep alive.
 
 ## Overview
